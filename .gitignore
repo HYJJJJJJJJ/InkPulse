@@ -1,0 +1,57 @@
+# ====================================================================
+# Altium Designer Git 忽略文件模版
+# ====================================================================
+
+# ---- 1. 自动备份与本地历史记录 (绝对不要入库) ----
+**/History/
+**/__Previews/
+*.Bak
+*.~*
+
+# ---- 2. 编译日志、差错日志与临时网表 ----
+*Project Logs*/
+**/Project\ Logs*/
+*.LOG
+*.log
+*.ERR
+*.err
+*.Generated
+Captures/
+
+# ---- 3. 本地用户工作区状态与偏好设置 (因人而异，无需共享) ----
+*.Txt
+*.gise
+*.pcode
+*.UserTools
+*.Workspace
+*.Xrep
+
+# ---- 4. 自动生成的制造/输出文件 (可由本地 AD 随时重新生成) ----
+# 如果你希望在 Git 中保留生成的 Gerber 或 BOM，可以把下面对应的行注释掉
+*.OutJob
+*.BOM
+*.REP
+*.APR
+*.EXTREP
+*.PHO
+*.GBL
+*.GTL
+*.GTO
+*.GBO
+*.GBS
+*.GTS
+*.GD1
+*.GG1
+*.GM*
+*.GPB
+*.GPT
+*.G1
+*.G2
+*.G3
+*.G4
+*.RUL
+
+# ---- 5. 操作系统与编辑器临时文件 ----
+.DS_Store
+Thumbs.db
+Desktop.ini

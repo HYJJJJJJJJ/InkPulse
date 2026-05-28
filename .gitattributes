@@ -1,0 +1,35 @@
+# ====================================================================
+# Altium Designer Git LFS 配置文件
+# ====================================================================
+
+# ---- 核心原理图与 PCB 图纸 (二进制大文件，必须 LFS) ----
+*.SchDoc filter=lfs diff=lfs merge=lfs -text
+*.PcbDoc filter=lfs diff=lfs merge=lfs -text
+
+# ---- 元器件库与封装库 (传统二进制库，必须 LFS 且推荐配合 LFS Lock) ----
+*.SchLib filter=lfs diff=lfs merge=lfs -text
+*.PcbLib filter=lfs diff=lfs merge=lfs -text
+*.IntLib filter=lfs diff=lfs merge=lfs -text
+
+# ---- 3D 模型与高级图形 (体积极大，必须 LFS) ----
+*.Step filter=lfs diff=lfs merge=lfs -text
+*.step filter=lfs diff=lfs merge=lfs -text
+*.stp filter=lfs diff=lfs merge=lfs -text
+*.3djson filter=lfs diff=lfs merge=lfs -text
+
+# ---- 生产输出与设计快照 (通常为大文件或非文本) ----
+*.pdf filter=lfs diff=lfs merge=lfs -text
+*.zip filter=lfs diff=lfs merge=lfs -text
+*.rar filter=lfs diff=lfs merge=lfs -text
+
+# ====================================================================
+# 明确保持常规 Git 管理的文本文件（不开启 LFS）
+# ====================================================================
+*.PrjPcb text
+*.DbLib text
+*.txt text
+*.pas text
+*.vbs text
+.gitignore text
+.gitattributes text
+.gitmodules text
