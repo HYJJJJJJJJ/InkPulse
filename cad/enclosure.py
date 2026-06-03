@@ -71,11 +71,11 @@ WINDOW_H = AA_H + WINDOW_MARGIN           # 98.42
 # 视窗中心相对玻璃/屏框中心上移 = (BORDER_BOTTOM - BORDER_TOP)/2
 WINDOW_OFFSET_Y = (BORDER_BOTTOM - BORDER_TOP) / 2.0   # 3.15
 
-# bezel 总深 (前壁 + 玻璃腔 + 泡棉 + 后盖嵌入)
-# 设计目标整体深度 ~18-20mm: 前面板 + 较深托盘背腔(容玻璃/泡棉/后盖凸台并提供刚性)
+# bezel 总深 (前壁 + 玻璃腔 + 泡棉 + 薄后盖嵌入)
+# 减薄: 背腔只需容 玻璃1.25 + 泡棉0.5 + 薄后盖凸台~3 => 腔深 5mm, 屏框总深 ~7.2mm.
 FRONT_WALL_T = LIP + 1.0                  # 视窗处前面板厚 (唇 + 余量) = 2.2
-BACK_LIP_DEPTH = 17.0                     # 背面托盘腔深度
-BEZEL_DEPTH = FRONT_WALL_T + BACK_LIP_DEPTH   # ~19.2 mm
+BACK_LIP_DEPTH = 5.0                      # 背面托盘腔深度 (减薄: 17->5)
+BEZEL_DEPTH = FRONT_WALL_T + BACK_LIP_DEPTH   # ~7.2 mm
 
 # 后盖
 BC_CAV_INSET = FIT_GAP                    # 后盖嵌入背腔的配合间隙
@@ -94,15 +94,19 @@ BOSS_Y = BEZEL_OUT_H / 2 - CORNER_OFFSET
 # 玻璃腔四角倒圆半径(为角立柱让位)
 GLASS_CAV_CORNER_R = CORNER_PILLAR + 1.0
 
-# 底座 (楔形)
+# 底座 (楔形): 中央 PCB 仓核心 + 下方宽大扁平底脚板(稳定) + 两侧外移斜墙
 BASE_INNER_W = PCB + 2 * 0.5              # 50 + 1.0 = 51.0 (四周 0.5 间隙)
 BASE_INNER_D = PCB + 2 * 0.5             # 沿 Y 方向同
 BASE_WALL = WALL
 BASE_FLOOR_T = 2.0
-BASE_OUT_W = BASE_INNER_W + 2 * BASE_WALL    # 56.0 量级
-BASE_OUT_D = BASE_INNER_D + 2 * BASE_WALL    # 56.0 量级
+BASE_OUT_W = BASE_INNER_W + 2 * BASE_WALL    # 中央核心盒 56 量级
+BASE_OUT_D = BASE_INNER_D + 2 * BASE_WALL    # 中央核心盒 56 量级
 BASE_INNER_H = CAVITY_CLEAR              # 内腔净高 15
-BASE_WALL_H = BASE_FLOOR_T + BASE_INNER_H    # 外壁总高 17
+BASE_WALL_H = BASE_FLOOR_T + BASE_INNER_H    # 核心盒外壁总高 17
+# 宽大扁平底脚板 (提升稳定性, 横跨支撑 176mm 宽屏)
+BASE_FOOT_W = 130.0                       # 底脚板宽 (斜墙将外移到此宽度边缘)
+BASE_FOOT_D = 90.0                        # 底脚板深 (抗后倾)
+BASE_FOOT_T = 4.0                         # 底脚板厚
 
 # PCB M3 螺柱
 M3_STANDOFF_D = 6.0
@@ -229,7 +233,11 @@ def make_back_cover():
 # ============================================================
 def make_base():
     with BuildPart() as bs:
-        # 1) 外盒 (实心) 高 BASE_WALL_H
+        # 0) 宽大扁平底脚板 (稳定footprint, 横跨支撑屏宽; 低矮不挡 +Y Type-C)
+        Box(BASE_FOOT_W, BASE_FOOT_D, BASE_FOOT_T,
+            align=(Align.CENTER, Align.CENTER, Align.MIN))
+
+        # 1) 中央 PCB 核心盒 (实心) 高 BASE_WALL_H, 坐在底脚板上(z=0 起, 与脚板并集)
         Box(BASE_OUT_W, BASE_OUT_D, BASE_WALL_H,
             align=(Align.CENTER, Align.CENTER, Align.MIN))
 
@@ -274,28 +282,28 @@ def make_base():
         #    竖直边沿 +Z 升 GUSSET_HEIGHT; 斜边为 60度安装面, bezel 背面贴此.
         #    Plane.YZ 上: 草图局部 X = 全局 Y, 草图局部 Y = 全局 Z.
         from build123d import Polygon
-        gx = BASE_OUT_W / 2 - GUSSET_T / 2
-        seam_z0 = BASE_WALL_H
-        front_y = -BASE_OUT_D / 2
-        # 安装面(斜边 B->C)与水平夹角 a 满足 tan(a)=GUSSET_HEIGHT/run.
-        # 要 a=ANGLE_DEG(60度) => run = 竖直高 / tan(60). 斜面法线 nz=cos(60)=0.5,
-        # 校验用 a=arccos(|nz|). (前两版分别误用 1/tan 与 tan, 此为正解.)
+        gx = BASE_FOOT_W / 2 - GUSSET_T / 2      # 外移到底脚板宽边 (±63)
+        seam_z0 = BASE_FOOT_T                      # 斜墙起于底脚板顶面
+        front_y = -BASE_FOOT_D / 2                 # 屏铰接在底脚板前缘(-Y)
+        # 安装面(斜边 A->C)与水平夹角 a 满足 tan(a)=GUSSET_HEIGHT/run, a=60 => run=H/tan(60).
+        # 朝向修正: 直角在后下(B), 斜面 A(前下)->C(后上) 朝 -Y+Z (观察者-上), 屏向后倾且朝 -Y.
+        #   A=(front_y, z0) 前下铰接;  B=(front_y+run, z0) 后下直角;  C=(front_y+run, z0+H) 后上.
+        #   斜面外法线 (0,-sin60,cos60)=(0,-0.866,0.5): 朝 -Y(观察者)与 +Z. 校验 a=arccos(|nz|)=60.
         run = GUSSET_HEIGHT / math.tan(math.radians(ANGLE_DEG))  # 水平投影
         for sx in (gx, -gx):
             with BuildSketch(Plane.YZ.offset(sx)) as sk:
-                # 注意: Plane.YZ 局部坐标 (u=全局Y, v=全局Z), 但 +X 法线方向.
+                # Plane.YZ 局部 (u=全局Y, v=全局Z)
                 Polygon(
-                    (front_y, seam_z0),
-                    (front_y + run, seam_z0),
-                    (front_y, seam_z0 + GUSSET_HEIGHT),
+                    (front_y, seam_z0),               # A 前下(铰接)
+                    (front_y + run, seam_z0),         # B 后下(直角)
+                    (front_y + run, seam_z0 + GUSSET_HEIGHT),  # C 后上
                     align=None,
                 )
             extrude(amount=GUSSET_T / 2, both=True, mode=Mode.ADD)
 
-        # 7) 接缝 M3 横穿螺丝孔 (沿 Y 方向横穿两片斜墙), 两颗位于斜墙中部.
-        #    放在斜面中点附近, 沿 +Y 钻穿.
+        # 7) 接缝 M3 横穿螺丝孔 (沿 Y 横穿两片斜墙), 位于斜面中部.
         seam_hole_z = seam_z0 + GUSSET_HEIGHT * 0.45
-        seam_hole_y = front_y + run * 0.35
+        seam_hole_y = front_y + run * 0.55
         for sx in (gx, -gx):
             with Locations(Pos(sx, seam_hole_y, seam_hole_z) * Rot(90, 0, 0)):
                 Cylinder(M3_SEAM_D / 2, GUSSET_T * 3,
@@ -309,25 +317,27 @@ def make_base():
 # 装配体: 60 度仰角姿态
 # ============================================================
 def make_assembly(bezel, back_cover, base):
-    # base 平放, z=0 桌面 (局部坐标已是)
+    from build123d import Vector
     base_a = Pos(0, 0, 0) * base
 
-    # bezel: 屏面与水平成 60 度, 背面贴靠斜墙. 背腔朝下(向斜墙).
-    # bezel 局部: 前面 z=0, 背面 z=BEZEL_DEPTH, +Y 向上(屏顶).
-    # 目标: 绕 X 轴旋转, 使屏面法线(+z) 与水平成 60 度.
-    # 斜墙安装面在 base 顶 -Y 侧后倾. bezel 背面贴上去.
-    tilt = ANGLE_DEG  # 屏面仰角
-    # 绕 X 旋转 -tilt: 使屏面(局部 -Z 外法线)与水平成 tilt=60 度仰角.
-    # (修正: 此前用 -(90-tilt)=-30 度, 屏只立到 30 度)
-    rot = Rot(-tilt, 0, 0)
-    # 抬升到斜墙位置: 放在 base 顶 -Y 侧上方
-    lift_z = BASE_WALL_H + 10
-    shift_y = -BASE_OUT_D / 2 + 5
-    bezel_a = Pos(0, shift_y, lift_z) * rot * bezel
+    # 斜墙几何 (须与 make_base 一致): 铰接点 A 在底脚板前缘.
+    run = GUSSET_HEIGHT / math.tan(math.radians(ANGLE_DEG))
+    seam_z0 = BASE_FOOT_T
+    front_y = -BASE_FOOT_D / 2
+    A = Vector(0, front_y, seam_z0)            # 铰接点(屏底后角落点)
 
-    # back_cover 贴 bezel 背面 (沿 bezel 局部 +z 偏移 BEZEL_DEPTH)
+    # 旋转 R: 使屏面朝 -Y+Z(观察者-上), 屏顶 +Y 指向斜面上坡, 屏底在 A.
+    # 推导: local+Y->(0,0.5,0.866)上坡, local-Z(屏面)->(0,-0.866,0.5)法线 => R=Rot(-120,0,0)*Rot(0,0,180).
+    R = Rot(-120, 0, 0) * Rot(0, 0, 180)
+
+    # 把 bezel 局部"屏底-背面"角点 (0,-H/2, BEZEL_DEPTH) 旋转后对到 A, 解出平移 T.
+    # (Location*Vector 不支持; 用 (R*Pos(p)).position 得到旋转后的点)
+    p_rot = (R * Pos(0, -BEZEL_OUT_H / 2, BEZEL_DEPTH)).position
+    T = A - p_rot
+
+    bezel_a = Pos(T.X, T.Y, T.Z) * R * bezel
     bc_local = Pos(0, 0, BEZEL_DEPTH - BACK_COVER_PLATE_T) * back_cover
-    back_a = Pos(0, shift_y, lift_z) * rot * bc_local
+    back_a = Pos(T.X, T.Y, T.Z) * R * bc_local
 
     asm = Compound(label="InkPulse_assembly",
                    children=[base_a, bezel_a, back_a])
