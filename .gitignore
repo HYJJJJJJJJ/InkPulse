@@ -57,3 +57,7 @@ Thumbs.db
 Desktop.ini
 # 头脑风暴可视化临时文件
 .superpowers/
+
+# Python
+__pycache__/
+cad/__pycache__/
