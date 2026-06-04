@@ -61,3 +61,6 @@ Desktop.ini
 # Python
 __pycache__/
 cad/__pycache__/
+
+# ---- CAD 预览渲染图 (由 cad/render_preview.py 生成，可随时重跑，无需入库) ----
+cad/output/*.png
