@@ -50,7 +50,7 @@
 
 ## 4. 底座（楔形 + PCB 仓 + 宽大底脚板）
 
-- **中央 PCB 核心盒**：内腔容 50×50 PCB，四周间隙 0.5mm；4× M3 打印螺柱（boss），柱心 (±21, ±21)，柱高 4mm；内腔净高 15mm。
+- **中央 PCB 核心盒**：内腔容 70×50 PCB，四周间隙 0.5mm；4× M3 打印螺柱（boss），柱心 (±30, ±20)，柱高 4mm；**内腔净高 9mm**（顶面元件仅 3.7mm，已减薄；壁高 11mm 仍包住 Type-C 开口）。
 - **后壁 Type-C 开口**：10 × 4mm（含 0.5 容差 + 倒角），中心离内底 ≈ **7.3mm**；Type-C 朝 +Y（背向用户）。底脚板低矮（4mm）不遮挡插拔。
 - **宽大扁平底脚板（稳定性）**：**130 (W) × 90 (D) × 4mm**，横跨支撑 176mm 宽屏、抗后倾。屏重心水平投影（Y≈−16）落在脚板内 → 不倾倒。
 - **两片 60° 斜墙（gusset）**：外移到脚板宽边 **±63**，横撑屏宽；起于脚板顶。**斜面朝 −Y+Z（朝观察者-上），使屏朝 −Y 观察者、向后倾**（朝向经校验：法线 ny=−0.87, nz=+0.50, arccos=60°）。2× M3 接缝螺丝横穿斜墙。
@@ -110,9 +110,10 @@ BACK_LIP_DEPTH=5.0        # 背腔深(减薄) -> 前框总深~7.2, 后盖~5.25
 # 底座/PCB
 PCB=50.0  PCB_T=1.6  STANDOFF_H=4.0
 HOLE_D=3.2  HOLE_INSET=4.0
-TYPEC_W=10.0  TYPEC_H=4.0  TYPEC_PORT_Z=7.3
-FPC_CONN_Y=-22.0
-CAVITY_CLEAR=15.0
+TYPEC_W=12.5  TYPEC_H=6.0  TYPEC_PORT_Z=5.65   # 实测自PCB1.step
+FPC_CONN_Y=-22.8
+CAVITY_CLEAR=9.0          # 减薄(原15); 元件仅3.7mm
+PCB_W=70.10  PCB_D=50.04  M3_POS_X=30  M3_POS_Y=20
 # 宽大底脚板 + 斜墙
 BASE_FOOT_W=130.0  BASE_FOOT_D=90.0  BASE_FOOT_T=4.0
 GUSSET_HEIGHT=40.0  GUSSET_T=4.0   # 斜墙在 ±(FOOT_W/2-GUSSET_T/2)=±63
