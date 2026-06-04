@@ -109,13 +109,13 @@ allpts = np.vstack([base_tris.reshape(-1, 3), lid_tris.reshape(-1, 3)])
 axT.set_xlim(allpts[:, 0].min() - 3, allpts[:, 0].max() + 3)
 axT.set_ylim(allpts[:, 1].min() - 3, allpts[:, 1].max() + 3)
 axT.set_aspect("equal")
-axT.set_title("俯视 Top (base 灰 + lid 橙)\n抽拉方向 -> +X(右); 前缘 -Y FPC 缺口", fontsize=10)
-axT.set_xlabel("X (抽拉方向 ->)"); axT.set_ylabel("Y (+后/Type-C, -前/屏)")
-axT.annotate("", xy=(50, 0), xytext=(38, 0),
+axT.set_title("俯视 Top (base 灰 + lid 橙)\n抽拉方向 -> +Y(后); 前缘 -Y FPC 缺口", fontsize=10)
+axT.set_xlabel("X"); axT.set_ylabel("Y (+后/Type-C 抽出 ->, -前/屏)")
+axT.annotate("", xy=(0, 30), xytext=(0, 16),
              arrowprops=dict(arrowstyle="->", color="red", lw=2))
-axT.text(45, 3, "抽出", color="red", fontsize=9)
-axT.axhline(-21.9, color="purple", ls="--", lw=0.8)
-axT.text(-60, -21.0, "斜墙边界 Y=-21.9", color="purple", fontsize=7)
+axT.text(3, 25, "抽出+Y", color="red", fontsize=9)
+axT.axhline(-36.5, color="purple", ls="--", lw=0.8)
+axT.text(-60, -35.5, "前内壁 Y=-36.5", color="purple", fontsize=7)
 
 # --- (2) YZ 剖面 (取 X≈+25 处薄片, 落在唇/盖板区, 避开 -X 挡位) ---
 axS = figL.add_subplot(1, 2, 2)
@@ -133,16 +133,16 @@ axS.add_collection(PolyCollection(yz_slice(base_tris, X_SLICE, HALF),
                    facecolors="#cdd6df", edgecolors="#8d99a6", linewidths=0.2, alpha=0.5))
 axS.add_collection(PolyCollection(yz_slice(lid_tris, X_SLICE, HALF),
                    facecolors="#e8a04a", edgecolors="#a8651f", linewidths=0.3, alpha=0.9))
-# 参考线: Type-C 开口 z 4.65..10.65; 元件顶 9.7; 盖板 z 10.25..11.75; 唇底 11.9; 盒顶 12.5
-for zz, lab, c in [(4.65, "TypeC底4.65", "#2f7d32"), (10.65, "TypeC顶10.65", "#2f7d32"),
-                   (9.7, "元件顶9.7", "#c62828"), (10.25, "盖板底10.25", "#e65100"),
-                   (11.9, "唇底11.9", "#1565c0"), (12.5, "盒顶12.5", "#555")]:
+# 参考线: Type-C 开口 z 5.65..9.75; 元件顶 9.95; 盖板 z 10.25..11.75; 后壁顶 10.0; 盒顶 12.5
+for zz, lab, c in [(5.65, "TypeC底5.65", "#2f7d32"), (9.75, "TypeC顶9.75", "#2f7d32"),
+                   (9.95, "元件顶9.95", "#c62828"), (10.0, "后壁顶10.0", "#6a1b9a"),
+                   (10.25, "盖板底10.25", "#e65100"), (12.5, "盒顶12.5", "#555")]:
     axS.axhline(zz, color=c, ls=":", lw=0.8)
-    axS.text(-30, zz + 0.1, lab, color=c, fontsize=7)
+    axS.text(-44, zz + 0.1, lab, color=c, fontsize=7)
 axS.set_aspect("equal")
-axS.set_title(f"YZ 剖面 @X={X_SLICE:.0f}\n盖板(橙)在元件(9.7)上方槽内, 不压PCB/不侵Type-C", fontsize=10)
-axS.set_xlabel("Y (+后/Type-C)"); axS.set_ylabel("Z")
-axS.set_xlim(-32, 32); axS.set_ylim(0, 14)
+axS.set_title(f"YZ 剖面 @X={X_SLICE:.0f}\n盖板(橙)在元件上方槽内; 后壁(10.0)<盖板底, 可+Y滑出", fontsize=10)
+axS.set_xlabel("Y (+后/Type-C ->)"); axS.set_ylabel("Z")
+axS.set_xlim(-42, 22); axS.set_ylim(0, 14)
 
 plt.tight_layout()
 plt.savefig("cad/output/preview_lid_top_section.png", dpi=130)
