@@ -174,7 +174,7 @@ LID_BODY_D = LID_Y_BACK - LID_Y_FRONT
 DETENT_D = 2.0                            # 卡扣凸点直径
 DETENT_H = 0.8                            # 凸点高
 DETENT_Y = LID_Y_BACK - 3.0               # detent Y 靠后(抽出)端, 在盖板边缘下
-DETENT_X = INNER_HALF_W - 1.5             # 左右侧唇下 X = ±34.05
+DETENT_X = INNER_HALF_W - 0.3             # 凸点外移嵌进侧壁(原-1.5悬空0.5mm成独立实体), 仍凸入槽~0.7
 # 抽出端(+Y)手指凸耳
 LID_TAB_W = 16.0                          # 手指凸耳宽(沿 X)
 LID_TAB_L = 8.0                           # 凸耳沿 +Y 伸出长
