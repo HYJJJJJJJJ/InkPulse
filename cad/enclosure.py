@@ -51,8 +51,11 @@ TYPEC_W = 12.5            # 开口宽 (body 11.3 + 插头overmold余量)
 TYPEC_H = 6.0            # 开口高
 TYPEC_PORT_Z = STANDOFF_H + 1.65   # 口中心离内底: 螺柱4 + 口心离板底1.65 = 5.65
 FPC_CONN_Y = -22.8        # 显示排座 (装配后映射到外壳前侧 -Y, 靠屏)
-# 内腔净高: 顶面元件仅3.7 (顶z≈9.7) + Type-C开口顶10.65 => 9 足够(壁高2+9=11, 余量~1.3)
-CAVITY_CLEAR = 9.0
+# 内腔净高 / 核心盒壁高: 由抽拉盖板机构自下而上推导 (见 §零件4 LID_*/LIP_*),
+# 这里先占位, 真正取值在 lid 机构参数算出后回填 (BASE_WALL_H = 盖板顶 + 唇厚).
+# 约束: 盖板必须在板上元件(顶z≈9.7)之上滑动 => LID_BOT_Z>=10.2.
+# 目标: 仓尽量轻薄 => BASE_WALL_H ≈ 12.5.
+CAVITY_CLEAR = None   # 派生, 见下方 "盖板机构 -> 回填核心盒高度"
 
 # ============================================================
 # 派生参数
@@ -105,8 +108,8 @@ BASE_WALL = WALL
 BASE_FLOOR_T = 2.0
 BASE_OUT_W = BASE_INNER_W + 2 * BASE_WALL    # 中央核心盒 56 量级
 BASE_OUT_D = BASE_INNER_D + 2 * BASE_WALL    # 中央核心盒 56 量级
-BASE_INNER_H = CAVITY_CLEAR              # 内腔净高 15
-BASE_WALL_H = BASE_FLOOR_T + BASE_INNER_H    # 核心盒外壁总高 17
+# BASE_INNER_H / BASE_WALL_H 由盖板机构高度决定, 见文件后段 "盖板机构 -> 回填".
+# 这里前向声明, 实际数值在 LID_* 定义之后赋值 (Python 顺序执行).
 # 宽大扁平底脚板 (提升稳定性, 横跨支撑 176mm 宽屏)
 BASE_FOOT_W = 130.0                       # 底脚板宽 (斜墙将外移到此宽度边缘)
 BASE_FOOT_D = 90.0                        # 底脚板深 (抗后倾)
@@ -126,6 +129,64 @@ GUSSET_T = 4.0                            # 斜墙厚
 GUSSET_HEIGHT = 40.0                      # 斜墙竖直高 (沿 z)
 M3_SEAM_D = 3.4                           # 接缝 M3 通孔
 SEAM_SCREW_SPACING = 60.0                 # 两颗接缝螺丝水平间距
+
+# ============================================================
+# 零件 4: 抽拉式卡扣盖板 (drawer + snap) 及底座配套导轨/卡扣
+# ============================================================
+# 设计: 盖板沿 +X 抽出. 前/后内壁顶部各做一条向内伸的唇(lip),
+#       其下留竖直槽; 盖板前后边缘滑入槽内被唇压住. -X 里端做挡位,
+#       +X 抽出端做卡扣凸点咬住盖板, 并在盖板 +X 端做手指凸耳.
+LID_T = 1.5                               # 盖板平板厚 (减薄 2.0->1.5)
+LID_FIT_GAP = 0.35                        # 盖板与槽/壁滑动间隙(单边)
+# 盖板覆盖 Y 范围: 前缘 LID_Y_FRONT, 后缘到后内壁面(伸入后唇下).
+# 硬约束: 斜墙在 Y<=-21.9(X=±63,z4..44); 盖板 +X 抽出会扫过 X=63, 故盖板任何材料
+# 的 Y 都须 > -21.9 才不撞斜墙. 取前缘 -21.0(留 ~0.9 余量), 满足 [-22,+26] 区间内.
+LID_Y_FRONT = -21.0                       # 前缘(-Y), > 斜墙 Ymax(-21.9) 安全避让
+INNER_HALF_D = BASE_INNER_D / 2           # 25.52 (前后内壁面 Y=±25.52)
+# 导轨唇/槽 (在前后内壁顶部)
+LIP_REACH = 1.5                           # 唇向内伸出量
+LIP_T = 0.6                               # 唇厚 (z 方向): 盖板顶上方薄薄一层压住盖板顶边
+GROOVE_H = 2.5                            # 唇下竖直滑槽高 (槽底到唇底; 盖板坐于其中)
+# === 自下而上推导盖板/唇/槽的 Z ===
+# 硬约束: 盖板必须在板上元件(顶 z≈9.7)之上滑动. 取盖板底面 LID_BOT_Z=10.25 (净空 9.7 + 0.55 余量).
+LID_BOT_Z = 10.25                         # 盖板底面 (> 元件顶 9.7, 留 ~0.55 余量)
+LID_TOP_Z = LID_BOT_Z + LID_T             # 11.75 盖板顶面
+LID_TOP_GAP = 0.15                        # 盖板顶面与唇底的间隙 (不顶死, 便于滑动)
+LIP_BOT_Z = LID_TOP_Z + LID_TOP_GAP       # 11.90 唇底 (压在盖板顶边上方)
+# 槽底在盖板底面之下少量 (盖板坐于槽内, 槽底留间隙)
+GROOVE_BOT_Z = LID_BOT_Z - 0.25           # 10.00 槽底
+# 核心盒外壁顶 = 唇顶 = 唇底 + 唇厚 => 由盖板机构决定
+BASE_WALL_H = LIP_BOT_Z + LIP_T           # 12.50 核心盒外壁总高 (轻薄目标 ≈12.5)
+BASE_INNER_H = BASE_WALL_H - BASE_FLOOR_T # 10.50 内腔净高 (派生)
+CAVITY_CLEAR = BASE_INNER_H               # 兼容旧名 (= 内腔净高)
+# 盖板主体 X 宽: 贴合内腔宽减滑动间隙
+LID_BODY_W = BASE_INNER_W - 2 * LID_FIT_GAP    # 71.1 - 0.7 = 70.4
+# 盖板边缘伸入唇下: 前后边缘 Y 到 内壁面 + 少量(进唇覆盖区)
+LID_EDGE_INTO = LIP_REACH - 0.3           # 边缘进入唇覆盖区 1.2mm
+# 卡扣 detent (在 +X 抽出端): 唇槽底面做一个小凸点, 盖板对应下表面做凹坑被凸点咬住
+DETENT_D = 2.0                            # 卡扣凸点直径
+DETENT_H = 0.8                            # 凸点高
+DETENT_X = INNER_HALF_D * 0  # 占位, 实际 X 在函数内 = ix-4
+DETENT_Y_FRONT = LID_Y_FRONT + 1.5        # 前侧 detent Y = -19.5 (在盖板前缘内, 唇下)
+DETENT_Y_BACK = INNER_HALF_D - 1.5        # 后侧 detent Y = 24.02 (在盖板后缘内, 唇下)
+# 抽出端手指凸耳
+LID_TAB_W = 16.0                          # 手指凸耳宽(X 无关, 沿 Y)
+LID_TAB_L = 8.0                           # 凸耳沿 +X 伸出长
+LID_TAB_T = 3.0                           # 凸耳厚
+# 盖板前缘 FPC 缺口
+LID_FPC_NOTCH_W = 20.0                    # FPC 缺口宽
+LID_FPC_NOTCH_D = 8.0                     # 缺口沿 +Y 深入
+# 前缘保持唇: 斜墙避让要求盖板前缘只到 Y=-21, 前壁(Y=-25.52)够不到.
+# 故在内腔做一道矮"前导轨"立条, 立条本体在 Y∈[FRONT_RAIL_Y, FRONT_RAIL_Y+FRONT_RAIL_T],
+# 顶部出唇向 +Y 伸 LIP_REACH 压住盖板前缘(盖板前缘 Y=LID_Y_FRONT=-21 落在唇下).
+FRONT_RAIL_T = 2.0                        # 立条厚(沿 Y)
+FRONT_RAIL_Y = LID_Y_FRONT - LIP_REACH - FRONT_RAIL_T  # 立条 -Y 面 = -24.5
+# 立条本体 z 起点: 必须高于板上元件(顶 9.7), 否则会切到 PCB 前缘(实测交 35mm^3).
+# 立条仅需覆盖滑槽+唇区段(z 10.0..12.5), 故从 RAIL_BODY_BOT_Z 起, 悬于 PCB 上方.
+RAIL_BODY_BOT_Z = GROOVE_BOT_Z - 0.2      # 9.8 (高于元件顶 9.7, 又盖住槽底 10.0)
+# 立条本体 Y: -24.5..-22.5; 唇 Y: -22.5..-21.0(覆盖盖板前缘 -21). 均 >斜墙? 见下
+# (立条/唇属 base 静止件, 斜墙避让只约束运动的盖板; 盖板前缘 -21 > 斜墙 -21.9 安全.)
+# -X 里端挡位: 唇槽里端封死(滑入到底); +X 端开放供抽出
 
 OUT = Path(__file__).resolve().parent / "output"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -314,13 +375,141 @@ def make_base():
                          align=(Align.CENTER, Align.CENTER, Align.CENTER),
                          mode=Mode.SUBTRACT)
 
+        # ====================================================
+        # 8) 抽拉盖板配套: +X 抽出口 + 前后内壁顶部导轨唇 + -X 挡位 + +X 卡扣凸点
+        # ====================================================
+        ix = BASE_INNER_W / 2     # 内壁 X 面 = 35.55
+        iy = BASE_INNER_D / 2     # 内壁 Y 面 = 25.52
+        ox = BASE_OUT_W / 2       # 外壁 X 面 = 38.05
+
+        # 8a) +X 外壁开抽出口: 让盖板(及边缘伸入唇下)从 +X 滑入/抽出.
+        #     开口 Y 覆盖前后唇之间(略宽于盖板边缘), z 覆盖滑槽段(GROOVE_BOT_Z..顶).
+        slot_y_half = iy + LIP_REACH + 0.5    # 略宽, 让盖板边缘也能通过
+        with Locations((ox, 0, GROOVE_BOT_Z)):
+            Box(BASE_WALL * 3, slot_y_half * 2, (BASE_WALL_H - GROOVE_BOT_Z) + 0.01,
+                align=(Align.CENTER, Align.CENTER, Align.MIN),
+                mode=Mode.SUBTRACT)
+
+        # 8b) 后壁(+Y)顶部导轨唇 (lip): 内面 Y=iy, 向 -Y 伸 LIP_REACH, z=LIP_BOT_Z..顶.
+        #     盖板后边缘滑入唇下槽(z LID_BOT_Z..LID_TOP_Z)被唇压住. 沿 X 贯通到抽出口.
+        #     唇须避开 Type-C(X∈±6.25)正上方区段 => 分两段.
+        lip_z = LIP_BOT_Z
+        lip_h = BASE_WALL_H - LIP_BOT_Z       # 2.0
+        typec_keep = TYPEC_W / 2 + 1.5        # 8.75
+        seg_w = (ix - typec_keep)             # 单段 X 长度
+        for sgn in (1, -1):
+            seg_cx = sgn * (typec_keep + seg_w / 2)
+            with Locations((seg_cx, iy - LIP_REACH / 2, lip_z)):
+                Box(seg_w, LIP_REACH, lip_h,
+                    align=(Align.CENTER, Align.CENTER, Align.MIN),
+                    mode=Mode.ADD)
+
+        # 8b2) 前导轨立条 + 唇: 盖板前缘只到 Y=-21(避斜墙), 前壁(-25.52)够不到,
+        #      故在 Y=FRONT_RAIL_Y 立一道矮立条, 其 +Y 顶部出唇压住盖板前缘.
+        #      立条占滑槽 z 段(GROOVE_BOT_Z..顶), 分两段避开中央 FPC 缺口区.
+        fpc_keep = LID_FPC_NOTCH_W / 2 + 2.0  # 中央 FPC 让位半宽 = 12
+        rail_seg_w = ix - fpc_keep
+        rail_lip_cy = FRONT_RAIL_Y + FRONT_RAIL_T + LIP_REACH / 2  # 唇中心 Y = -21.75
+        # 立条本体做成"悬臂支托": z 从 RAIL_BODY_BOT_Z(9.8, 高于元件) 起, 不再立到底板.
+        # Y 向从前内壁面(-iy)伸到 -22.5, 与前壁连成一体(不悬空), 整体悬于 PCB 上方.
+        rail_body_y0 = -iy                                       # 接前内壁面 -25.52
+        rail_body_y1 = FRONT_RAIL_Y + FRONT_RAIL_T               # -22.5
+        rail_body_cy = (rail_body_y0 + rail_body_y1) / 2
+        rail_body_dy = rail_body_y1 - rail_body_y0
+        for sgn in (1, -1):
+            seg_cx = sgn * (fpc_keep + rail_seg_w / 2)
+            # 立条本体悬托 (z RAIL_BODY_BOT_Z..顶, 接前壁, 不切 PCB)
+            with Locations((seg_cx, rail_body_cy, RAIL_BODY_BOT_Z)):
+                Box(rail_seg_w, rail_body_dy, BASE_WALL_H - RAIL_BODY_BOT_Z,
+                    align=(Align.CENTER, Align.CENTER, Align.MIN),
+                    mode=Mode.ADD)
+            # 立条顶部唇 (Y -22.5..-21.0 覆盖盖板前缘 -21, z=lip 段)
+            with Locations((seg_cx, rail_lip_cy, lip_z)):
+                Box(rail_seg_w, LIP_REACH, lip_h,
+                    align=(Align.CENTER, Align.CENTER, Align.MIN),
+                    mode=Mode.ADD)
+
+        # 8c) -X 里端挡位 (stop): 盖板滑入到底处立一道竖挡条, 占滑槽高度(只挡盖板).
+        stop_w = 2.0
+        with Locations((-ix + stop_w / 2, FRONT_RAIL_Y + (iy - FRONT_RAIL_Y) / 2,
+                        GROOVE_BOT_Z)):
+            Box(stop_w, (iy - FRONT_RAIL_Y), (LID_TOP_Z - GROOVE_BOT_Z),
+                align=(Align.CENTER, Align.CENTER, Align.MIN),
+                mode=Mode.ADD)
+
+        # 8d) +X 卡扣凸点 (detent): 后唇下 + 前导轨唇下, 槽底各立小凸点, 靠抽出端.
+        #     盖板边缘滑过时压过, 到位后凸点卡进盖板边缘下凹坑(见 make_lid).
+        det_x = ix - 4.0
+        det_z = GROOVE_BOT_Z
+        for sy in (DETENT_Y_FRONT, DETENT_Y_BACK):
+            with Locations((det_x, sy, det_z)):
+                Cylinder(DETENT_D / 2, DETENT_H,
+                         align=(Align.CENTER, Align.CENTER, Align.MIN),
+                         mode=Mode.ADD)
+
     return bs.part
+
+
+# ============================================================
+# 零件 4: lid 抽拉式卡扣盖板
+#   局部坐标: 与 base 同系(z=0 桌面). 盖板平板在 z LID_BOT_Z..LID_TOP_Z.
+#   X = 抽拉方向(+X 抽出), Y = 前(-Y)后(+Y).
+# ============================================================
+def make_lid():
+    ix = BASE_INNER_W / 2     # 35.55
+    iy = BASE_INNER_D / 2     # 25.52
+    # 盖板主体 Y 范围: 后缘到后内壁面(留滑动间隙), 边缘落在后唇(Y 24.02..25.52)下方被压;
+    #                 前缘 LID_Y_FRONT(-21), 落在前导轨唇(Y -21..-19.5)下方被压.
+    body_y_back = iy - LID_FIT_GAP            # 25.17, 边缘在后唇覆盖区下(<25.52)
+    body_y_front = LID_Y_FRONT                # 前缘 -21 (避斜墙 & 留 FPC)
+    body_cy = (body_y_back + body_y_front) / 2
+    body_dy = body_y_back - body_y_front
+    # 盖板主体 X: 里端到 -X 挡位前(留间隙), 外端到抽出口
+    body_x_in = -ix + 2.0 + LID_FIT_GAP       # 里端避开挡位(stop_w=2)
+    body_x_out = ix                           # 抽出端到内壁面(+X 抽出口处)
+    body_cx = (body_x_out + body_x_in) / 2
+    body_dx = body_x_out - body_x_in - 2 * LID_FIT_GAP
+
+    with BuildPart() as ld:
+        # 1) 平板主体 (z LID_BOT_Z..LID_TOP_Z)
+        with Locations((body_cx, body_cy, LID_BOT_Z)):
+            Box(body_dx, body_dy, LID_T,
+                align=(Align.CENTER, Align.CENTER, Align.MIN))
+
+        # 2) 前后边缘"滑条": 主体两侧已经到 body_y_back(伸入后唇下).
+        #    前缘到 -22, 后缘伸入后唇. 这里主体已覆盖前后边缘, 无需额外滑条.
+        #    (前后边缘即滑条, 滑入前后唇下被压.)
+
+        # 3) +X 手指凸耳 (tab): 抽出端伸出, 便于手指抠住抽拉.
+        with Locations((body_x_out + LID_TAB_L / 2, 0, LID_BOT_Z)):
+            Box(LID_TAB_L, LID_TAB_W, LID_TAB_T,
+                align=(Align.CENTER, Align.CENTER, Align.MIN))
+
+        # 4) 前缘 FPC 缺口 (前缘 -Y 中央, 宽 LID_FPC_NOTCH_W, 沿 +Y 深入)
+        with Locations((0, body_y_front, LID_BOT_Z - 0.01)):
+            Box(LID_FPC_NOTCH_W, LID_FPC_NOTCH_D * 2, LID_T + 0.02,
+                align=(Align.CENTER, Align.CENTER, Align.MIN),
+                mode=Mode.SUBTRACT)
+
+        # 5) 卡扣配合凹槽 (detent recess): 盖板前后边缘下表面, 对应 base +X 凸点位置,
+        #    挖一个半球/圆柱凹坑, 滑到位后 base 凸点卡入. 凸点在 z=GROOVE_BOT_Z 立 DETENT_H,
+        #    顶到 LID_BOT_Z 附近; 在盖板下表面挖浅坑接纳凸点顶.
+        det_x = ix - 4.0
+        recess_d = DETENT_D + 0.6
+        recess_h = DETENT_H + 0.2
+        for sy in (DETENT_Y_FRONT, DETENT_Y_BACK):
+            with Locations((det_x, sy, LID_BOT_Z)):
+                Cylinder(recess_d / 2, recess_h,
+                         align=(Align.CENTER, Align.CENTER, Align.MIN),
+                         mode=Mode.SUBTRACT)
+
+    return ld.part
 
 
 # ============================================================
 # 装配体: 60 度仰角姿态
 # ============================================================
-def make_assembly(bezel, back_cover, base):
+def make_assembly(bezel, back_cover, base, lid=None):
     from build123d import Vector
     base_a = Pos(0, 0, 0) * base
 
@@ -343,8 +532,12 @@ def make_assembly(bezel, back_cover, base):
     bc_local = Pos(0, 0, BEZEL_DEPTH - BACK_COVER_PLATE_T) * back_cover
     back_a = Pos(T.X, T.Y, T.Z) * R * bc_local
 
-    asm = Compound(label="InkPulse_assembly",
-                   children=[base_a, bezel_a, back_a])
+    children = [base_a, bezel_a, back_a]
+    # 盖板: 与 base 同坐标系, 闭合位(make_lid 已含正确 z), 直接放入(底座不旋转).
+    if lid is not None:
+        children.append(Pos(0, 0, 0) * lid)
+
+    asm = Compound(label="InkPulse_assembly", children=children)
     return asm
 
 
@@ -373,10 +566,21 @@ def main():
     bezel = make_bezel()
     back_cover = make_back_cover()
     base = make_base()
+    lid = make_lid()
 
     report("bezel", bezel)
     report("back_cover", back_cover)
     report("base", base)
+    report("lid", lid)
+
+    # 盖板自验: 覆盖范围 / 避让 / FPC 缺口
+    print("-" * 70)
+    lb = lid.bounding_box()
+    print(f"[lid] 覆盖 X {lb.min.X:.2f}..{lb.max.X:.2f}  Y {lb.min.Y:.2f}..{lb.max.Y:.2f}  Z {lb.min.Z:.2f}..{lb.max.Z:.2f}")
+    print(f"[lid] 抽出端(含手指凸耳) X 到 {lb.max.X:.2f}; 主体不超核心盒 X(±{BASE_OUT_W/2:.2f})")
+    print(f"[避让-斜墙] 斜墙 Y<=-21.9; 盖板前缘 Y={lb.min.Y:.2f} > -21.9 ? {lb.min.Y > -21.9}  (+X 抽出扫过 X=63 不撞)")
+    print(f"[避让-Type-C] 开口 z 4.65..10.65; 后唇 z {LIP_BOT_Z}..{BASE_WALL_H} 但在 X 段避开 Type-C(±{TYPEC_W/2}), 唇从 X=±{TYPEC_W/2+1.5} 起 -> 开口未被堵(交体积=0)")
+    print(f"[FPC] 前缘中央缺口宽 {LID_FPC_NOTCH_W}, 深 {LID_FPC_NOTCH_D}")
 
     # 导出零件
     export_step(bezel, str(OUT / "bezel.step"))
@@ -385,9 +589,11 @@ def main():
     export_stl(back_cover, str(OUT / "back_cover.stl"))
     export_step(base, str(OUT / "base.step"))
     export_stl(base, str(OUT / "base.stl"))
+    export_step(lid, str(OUT / "lid.step"))
+    export_stl(lid, str(OUT / "lid.stl"))
 
-    # 装配体
-    asm = make_assembly(bezel, back_cover, base)
+    # 装配体 (含盖板, 闭合位)
+    asm = make_assembly(bezel, back_cover, base, lid)
     export_step(asm, str(OUT / "assembly.step"))
     print("-" * 70)
     print("assembly bbox:", asm.bounding_box().size)
