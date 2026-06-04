@@ -38,16 +38,19 @@ FIT_GAP = 0.4
 FOAM_T = 0.5
 WINDOW_MARGIN = 0.5
 ANGLE_DEG = 60.0
-# 底座/PCB
-PCB = 50.0
-PCB_T = 1.6
+# 底座/PCB  —— 实测自 hardware/PCB1.step (板中心为原点)
+PCB_W = 70.10             # 板 X 向 (沿屏宽/连接器边)
+PCB_D = 50.04             # 板 Y 向 (Type-C <-> FPC 方向)
+PCB_T = 1.6               # 物理板厚 (STEP简化为0.41, 取实际1.6)
 STANDOFF_H = 4.0
-HOLE_D = 3.2
-HOLE_INSET = 4.0           # (备用) PCB 安装孔从板边内缩
-TYPEC_W = 10.0
-TYPEC_H = 4.0
-TYPEC_PORT_Z = 7.3
-FPC_CONN_Y = -22.0
+HOLE_D = 3.2              # 实测 Φ3.2 (R1.59)
+# 安装孔实测 (±30, ±20); Type-C 在 -Y 边中点, FPC 排座在 +Y 边中点
+M3_POS_X = 30.0
+M3_POS_Y = 20.0
+TYPEC_W = 12.5            # 开口宽 (body 11.3 + 插头overmold余量)
+TYPEC_H = 6.0            # 开口高
+TYPEC_PORT_Z = STANDOFF_H + 1.65   # 口中心离内底: 螺柱4 + 口心离板底1.65 = 5.65
+FPC_CONN_Y = -22.8        # 显示排座 (装配后映射到外壳前侧 -Y, 靠屏)
 CAVITY_CLEAR = 15.0
 
 # ============================================================
@@ -95,8 +98,8 @@ BOSS_Y = BEZEL_OUT_H / 2 - CORNER_OFFSET
 GLASS_CAV_CORNER_R = CORNER_PILLAR + 1.0
 
 # 底座 (楔形): 中央 PCB 仓核心 + 下方宽大扁平底脚板(稳定) + 两侧外移斜墙
-BASE_INNER_W = PCB + 2 * 0.5              # 50 + 1.0 = 51.0 (四周 0.5 间隙)
-BASE_INNER_D = PCB + 2 * 0.5             # 沿 Y 方向同
+BASE_INNER_W = PCB_W + 2 * 0.5            # 70.1 + 1.0 (四周 0.5 间隙)
+BASE_INNER_D = PCB_D + 2 * 0.5            # 50.04 + 1.0
 BASE_WALL = WALL
 BASE_FLOOR_T = 2.0
 BASE_OUT_W = BASE_INNER_W + 2 * BASE_WALL    # 中央核心盒 56 量级
@@ -111,7 +114,7 @@ BASE_FOOT_T = 4.0                         # 底脚板厚
 # PCB M3 螺柱
 M3_STANDOFF_D = 6.0
 M3_PILOT_D = 2.5                          # M3 自攻底孔
-M3_POS = 21.0                             # (±21, ±21)
+# 螺柱位置实测 (±30, ±20)
 
 # Type-C 口
 # 口中心离内底 7.3 => 离底座底面 = BASE_FLOOR_T + 7.3
@@ -247,15 +250,15 @@ def make_base():
                 align=(Align.CENTER, Align.CENTER, Align.MIN),
                 mode=Mode.SUBTRACT)
 
-        # 3) 四角 M3 PCB 螺柱 (±21, ±21), 柱高 = STANDOFF_H, 从内底升起
-        for sx in (M3_POS, -M3_POS):
-            for sy in (M3_POS, -M3_POS):
+        # 3) 四角 M3 PCB 螺柱 (±30, ±20), 柱高 = STANDOFF_H, 从内底升起
+        for sx in (M3_POS_X, -M3_POS_X):
+            for sy in (M3_POS_Y, -M3_POS_Y):
                 with Locations((sx, sy, BASE_FLOOR_T)):
                     Cylinder(M3_STANDOFF_D / 2, STANDOFF_H,
                              align=(Align.CENTER, Align.CENTER, Align.MIN))
         # 螺柱自攻底孔
-        for sx in (M3_POS, -M3_POS):
-            for sy in (M3_POS, -M3_POS):
+        for sx in (M3_POS_X, -M3_POS_X):
+            for sy in (M3_POS_Y, -M3_POS_Y):
                 with Locations((sx, sy, BASE_FLOOR_T + STANDOFF_H)):
                     Cylinder(M3_PILOT_D / 2, STANDOFF_H - 0.5,
                              align=(Align.CENTER, Align.CENTER, Align.MAX),
