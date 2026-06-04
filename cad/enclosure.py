@@ -38,6 +38,7 @@ FIT_GAP = 0.4
 FOAM_T = 0.5
 WINDOW_MARGIN = 0.5
 ANGLE_DEG = 60.0
+CORNER_R = 10.0          # 各件外形四角圆角半径 (美观; <=R12 不碰屏框角立柱)
 # 底座/PCB  —— 实测自 hardware/PCB1.step (板中心为原点)
 PCB_W = 70.10             # 板 X 向 (沿屏宽/连接器边)
 PCB_D = 50.04             # 板 Y 向 (Type-C <-> FPC 方向)
@@ -214,9 +215,11 @@ OUT.mkdir(parents=True, exist_ok=True)
 # ============================================================
 def make_bezel():
     with BuildPart() as bz:
-        # 1) 整体实心托盘块: 从 z=0 到 z=BEZEL_DEPTH
-        Box(BEZEL_OUT_W, BEZEL_OUT_H, BEZEL_DEPTH,
-            align=(Align.CENTER, Align.CENTER, Align.MIN))
+        # 1) 整体实心托盘块(四角 R 圆角): 从 z=0 到 z=BEZEL_DEPTH
+        with BuildSketch(Plane.XY) as _osk:
+            Rectangle(BEZEL_OUT_W, BEZEL_OUT_H)
+            fillet(_osk.vertices(), radius=CORNER_R)
+        extrude(amount=BEZEL_DEPTH)
 
         # 2) 背面玻璃容腔 (从背面向下挖, 留前面板). 四角倒圆为角立柱让位.
         cav_depth = BEZEL_DEPTH - FRONT_WALL_T
@@ -271,9 +274,11 @@ def make_back_cover():
 
     plug_rim = 4.0   # 嵌入凸台做成空心边框, 壁宽, 省料且能压泡棉
     with BuildPart() as bc:
-        # 盖板 (与屏框外形齐平)
-        Box(BEZEL_OUT_W, BEZEL_OUT_H, BACK_COVER_PLATE_T,
-            align=(Align.CENTER, Align.CENTER, Align.MIN))
+        # 盖板 (与屏框外形齐平, 四角 R 圆角)
+        with BuildSketch(Plane.XY) as _bcsk:
+            Rectangle(BEZEL_OUT_W, BEZEL_OUT_H)
+            fillet(_bcsk.vertices(), radius=CORNER_R)
+        extrude(amount=BACK_COVER_PLATE_T)
         # 嵌入凸台 (向 +z 即朝 bezel) -- 空心边框, 四角倒圆与玻璃腔贴合
         with BuildSketch(Plane.XY.offset(BACK_COVER_PLATE_T)) as plug_sk:
             Rectangle(plug_w, plug_h)
@@ -330,9 +335,11 @@ def make_base():
         foot_front = -(BASE_FOOT_D / 2 + FOOT_FRONT_EXT)  # -58.5, 托前挡唇
         foot_depth = foot_back - foot_front
         foot_cy = (foot_front + foot_back) / 2
-        with Locations((0, foot_cy, 0)):
-            Box(BASE_FOOT_W, foot_depth, BASE_FOOT_T,
-                align=(Align.CENTER, Align.CENTER, Align.MIN))
+        with BuildSketch(Plane.XY) as _ftsk:
+            with Locations((0, foot_cy)):
+                Rectangle(BASE_FOOT_W, foot_depth)
+            fillet(_ftsk.vertices(), radius=CORNER_R)
+        extrude(amount=BASE_FOOT_T)
 
         # 1) 中央 PCB 核心盒 (实心) 高 BASE_WALL_H, 坐在底脚板上(z=0 起, 与脚板并集)
         #    核心盒整体前移到中心 (0, CORE_CY).
