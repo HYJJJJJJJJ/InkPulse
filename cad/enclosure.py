@@ -324,12 +324,14 @@ def make_back_cover():
 def make_base():
     with BuildPart() as bs:
         # 0) 宽大扁平底脚板 (稳定footprint, 横跨支撑屏宽; 低矮不挡 +Y Type-C)
-        #    免螺丝: 前缘向 -Y 延伸 FOOT_FRONT_EXT 以托住前挡唇; 后缘/铰接(-45)不变.
-        #    用从 +Y 边对齐的整块: 总深 = BASE_FOOT_D + FOOT_FRONT_EXT, 后缘固定 +BASE_FOOT_D/2.
-        foot_total_d = BASE_FOOT_D + FOOT_FRONT_EXT
-        foot_cy = BASE_FOOT_D / 2 - foot_total_d / 2   # 使后缘=+45, 前缘=-(45+EXT)
+        #    后缘缩到与核心盒后壁齐平(+CORE_CY+BASE_OUT_D/2), 让开 Type-C 数据线;
+        #    前缘向 -Y 延伸 FOOT_FRONT_EXT 托住前挡唇. (重心在Y≈-16偏前, 缩后缘不影响防倾.)
+        foot_back = CORE_CY + BASE_OUT_D / 2            # +17.02, 与PCB盒后壁齐平
+        foot_front = -(BASE_FOOT_D / 2 + FOOT_FRONT_EXT)  # -58.5, 托前挡唇
+        foot_depth = foot_back - foot_front
+        foot_cy = (foot_front + foot_back) / 2
         with Locations((0, foot_cy, 0)):
-            Box(BASE_FOOT_W, foot_total_d, BASE_FOOT_T,
+            Box(BASE_FOOT_W, foot_depth, BASE_FOOT_T,
                 align=(Align.CENTER, Align.CENTER, Align.MIN))
 
         # 1) 中央 PCB 核心盒 (实心) 高 BASE_WALL_H, 坐在底脚板上(z=0 起, 与脚板并集)
