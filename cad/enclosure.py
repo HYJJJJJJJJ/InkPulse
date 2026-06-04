@@ -115,8 +115,10 @@ BASE_OUT_D = BASE_INNER_D + 2 * BASE_WALL    # 中央核心盒 56 量级
 # 这里前向声明, 实际数值在 LID_* 定义之后赋值 (Python 顺序执行).
 # 宽大扁平底脚板 (提升稳定性, 横跨支撑 176mm 宽屏)
 BASE_FOOT_W = 130.0                       # 底脚板宽 (斜墙将外移到此宽度边缘)
-BASE_FOOT_D = 90.0                        # 底脚板深 (抗后倾)
+BASE_FOOT_D = 90.0                        # 底脚板深 (抗后倾). 注意: 屏铰接/斜墙 front_y=-45 由此派生, 勿改!
 BASE_FOOT_T = 4.0                         # 底脚板厚
+# 免螺丝固定: 脚板前缘向 -Y 额外延伸, 托住前挡唇 (不改 BASE_FOOT_D, 保持铰接/斜墙在 -45).
+FOOT_FRONT_EXT = 13.5                     # 前缘额外延伸量 -> 前缘 Y=-(90/2+13.5)=-58.5
 
 # PCB M3 螺柱
 M3_STANDOFF_D = 6.0
@@ -127,11 +129,24 @@ M3_PILOT_D = 2.5                          # M3 自攻底孔
 # 口中心离内底 7.3 => 离底座底面 = BASE_FLOOR_T + 7.3
 TYPEC_CENTER_Z = BASE_FLOOR_T + TYPEC_PORT_Z
 
-# 60 度斜墙 / 接缝
+# 60 度斜墙 (做后撑斜面; 免螺丝设计已取消接缝螺丝)
 GUSSET_T = 4.0                            # 斜墙厚
 GUSSET_HEIGHT = 40.0                      # 斜墙竖直高 (沿 z)
-M3_SEAM_D = 3.4                           # 接缝 M3 通孔
-SEAM_SCREW_SPACING = 60.0                 # 两颗接缝螺丝水平间距
+
+# === 免螺丝前挡唇 (retaining lip) ===
+# 屏框前倾 60°, 前表面底角(0,-52.97,8.6), 前表面外法线(0,-0.866,0.5).
+# 在前表面前方留 LIP_FRONT_GAP(垂直间隙)立一道斜唇(内面平行屏前表面), 挡住屏框前倒.
+# 中央 X=0 留 ≥20mm 缺口供 FPC 出线; 分左右两段.
+LIP_FRONT_GAP = 0.4                       # 唇内面到屏前表面的垂直间隙
+LIP_WALL_T = 2.0                          # 唇厚 (沿水平 -Y)
+LIP_TOP_Z = 11.5                          # 唇顶高 (高过屏框前底角 8.6 约 2.9mm, 挡得住前倾)
+LIP_BOT_Z_R = BASE_FOOT_T                 # 唇底=脚板顶 z=4
+LIP_FPC_GAP_HALF = 11.0                   # 中央 FPC 缺口半宽 (=22mm 缺口 >=20)
+# 轻卡点 (detent ridge): 唇内面对应屏框处一个小凸棱, 屏框插到底轻轻一扣 (擦过, 静止≈0干涉)
+LIP_CLEAT_PROUD = 0.35                    # 卡点凸出量 (擦过级, 不造成大静态干涉)
+LIP_CLEAT_Z = 9.5                         # 卡点中心 z (略高于屏前底角 8.6, 屏前表面在此处)
+LIP_CLEAT_W = 8.0                         # 卡点沿 X 宽
+LIP_CLEAT_D = 2.0                         # 卡点沿 Y 厚 (小凸棱)
 
 # ============================================================
 # 零件 4: 抽拉式卡扣盖板 (drawer + snap) 及底座配套导轨/卡扣
@@ -306,8 +321,13 @@ def make_back_cover():
 def make_base():
     with BuildPart() as bs:
         # 0) 宽大扁平底脚板 (稳定footprint, 横跨支撑屏宽; 低矮不挡 +Y Type-C)
-        Box(BASE_FOOT_W, BASE_FOOT_D, BASE_FOOT_T,
-            align=(Align.CENTER, Align.CENTER, Align.MIN))
+        #    免螺丝: 前缘向 -Y 延伸 FOOT_FRONT_EXT 以托住前挡唇; 后缘/铰接(-45)不变.
+        #    用从 +Y 边对齐的整块: 总深 = BASE_FOOT_D + FOOT_FRONT_EXT, 后缘固定 +BASE_FOOT_D/2.
+        foot_total_d = BASE_FOOT_D + FOOT_FRONT_EXT
+        foot_cy = BASE_FOOT_D / 2 - foot_total_d / 2   # 使后缘=+45, 前缘=-(45+EXT)
+        with Locations((0, foot_cy, 0)):
+            Box(BASE_FOOT_W, foot_total_d, BASE_FOOT_T,
+                align=(Align.CENTER, Align.CENTER, Align.MIN))
 
         # 1) 中央 PCB 核心盒 (实心) 高 BASE_WALL_H, 坐在底脚板上(z=0 起, 与脚板并集)
         #    核心盒整体前移到中心 (0, CORE_CY).
@@ -383,14 +403,51 @@ def make_base():
                 )
             extrude(amount=GUSSET_T / 2, both=True, mode=Mode.ADD)
 
-        # 7) 接缝 M3 横穿螺丝孔 (沿 Y 横穿两片斜墙), 位于斜面中部.
-        seam_hole_z = seam_z0 + GUSSET_HEIGHT * 0.45
-        seam_hole_y = front_y + run * 0.55
-        for sx in (gx, -gx):
-            with Locations(Pos(sx, seam_hole_y, seam_hole_z) * Rot(90, 0, 0)):
-                Cylinder(M3_SEAM_D / 2, GUSSET_T * 3,
-                         align=(Align.CENTER, Align.CENTER, Align.CENTER),
-                         mode=Mode.SUBTRACT)
+        # 7) 免螺丝前挡唇 (retaining lip): 已取消接缝 M3 螺丝.
+        #    屏框前倾时前表面抵住此唇内斜面(60°), 防倒出; 配合斜墙后撑 + 重力自稳.
+        #    分左右两段, 中央 X=0 留 2*LIP_FPC_GAP_HALF 缺口给 FPC.
+        #    在 Plane.YZ 上画唇横截面多边形(内面平行屏前表面, 60°), 沿 X 拉伸.
+        #    屏前表面线: 过(Y,Z)=(-52.9674, 8.6), 方向(0.5,0.866)归一; 斜率 dY/dZ=0.57735.
+        def _front_y_at(z):    # 屏框前表面在 world z 处的 Y
+            return -52.9674 + 0.57735 * (z - 8.6)
+        # 唇内面 = 屏前表面沿外法线(0,-0.866,0.5)偏移 LIP_FRONT_GAP
+        ny, nz = -0.866025, 0.5
+        def _lip_inner_y(z):   # 唇内面在 world z 处的 Y
+            return _front_y_at(z - LIP_FRONT_GAP * nz) + LIP_FRONT_GAP * ny
+        lip_z0 = LIP_BOT_Z_R
+        lip_z1 = LIP_TOP_Z
+        # 改为竖直唇内面: 取屏前最靠前点(底角 Y=-52.9674)前方 LIP_FRONT_GAP.
+        # 屏前表面随 z 上升向后退, 故竖直唇恒在其前方, 绝不重叠(原60°斜唇上部会插进屏框).
+        lip_in_y = -52.9674 - LIP_FRONT_GAP
+        in_bot = (lip_in_y, lip_z0)                            # 内面底(竖直)
+        in_top = (lip_in_y, lip_z1)                            # 内面顶(竖直)
+        out_top = (lip_in_y - LIP_WALL_T, lip_z1)             # 外面顶
+        out_bot = (lip_in_y - LIP_WALL_T, lip_z0)             # 外面底
+        # 唇沿 X 分两段, 各段中心与半宽
+        seg_x_in = LIP_FPC_GAP_HALF                            # 缺口内沿
+        seg_x_out = BASE_FOOT_W / 2 - 4.0                      # 唇外端 (略收进脚板边)
+        seg_w = seg_x_out - seg_x_in
+        seg_cx = (seg_x_in + seg_x_out) / 2
+        from build123d import Polygon
+        for sgn in (1, -1):
+            with BuildSketch(Plane.YZ.offset(sgn * seg_x_in)) as lsk:
+                Polygon(in_bot, in_top, out_top, out_bot, align=None)
+            # Plane.YZ 法线为 +X; 从缺口内沿(±seg_x_in)向外侧拉伸 seg_w (sgn 决定方向)
+            extrude(amount=sgn * seg_w, mode=Mode.ADD)
+
+        # 8) 轻卡点 (cleat): 唇内斜面对应屏框处加小凸棱, 凸向屏前表面(+Y 内法线方向).
+        #    屏框插到底擦过/轻扣; 静止时仅 just-touching, 不造成大静态干涉.
+        #    放在左右唇段内侧, 凸出 LIP_CLEAT_PROUD 朝屏前表面.
+        # 卡点从竖直唇内面水平凸向屏(+Y), 前面刚好擦到屏前表面(在 LIP_CLEAT_Z 处), 留 0.05 间隙.
+        frame_front_at_cleat = -52.9674 + 0.57735 * (LIP_CLEAT_Z - 8.6)
+        cl_cy = frame_front_at_cleat - LIP_CLEAT_D / 2 - 0.05
+        cl_cz = LIP_CLEAT_Z
+        for sgn in (1, -1):
+            cl_x = sgn * (seg_x_in + 6.0)   # 卡点靠近缺口内侧, 在唇段上
+            with Locations((cl_x, cl_cy, cl_cz)):
+                Box(LIP_CLEAT_W, LIP_CLEAT_D, LIP_CLEAT_D,
+                    align=(Align.CENTER, Align.CENTER, Align.CENTER),
+                    mode=Mode.ADD)
 
         # ====================================================
         # 8) 抽拉盖板配套(v3, 沿+Y抽出): 左右侧壁(±X)导轨唇沿Y贯通 + +Y抽出口
@@ -555,6 +612,22 @@ def main():
     report("back_cover", back_cover)
     report("base", base)
     report("lid", lid)
+
+    # 实体数 (各应=1, 无悬空件)
+    print("-" * 70)
+    for nm, pt in (("bezel", bezel), ("back_cover", back_cover), ("base", base), ("lid", lid)):
+        print(f"[solids] {nm:12s} = {len(pt.solids())}")
+    # 前挡唇有效性: 唇内面 Y vs 屏框前表面 Y(-53)
+    def _front_y_at(z):
+        return -52.9674 + 0.57735 * (z - 8.6)
+    ny, nz = -0.866025, 0.5
+    def _lip_inner_y(z):
+        return _front_y_at(z - LIP_FRONT_GAP * nz) + LIP_FRONT_GAP * ny
+    print("-" * 70)
+    print(f"[前挡唇] 唇顶 z={LIP_TOP_Z} (>屏前底角 z8.6 约 {LIP_TOP_Z-8.6:.1f}mm)")
+    for z in (4.0, 8.6, 11.0):
+        print(f"   z={z:5.1f}: 唇内面 Y={_lip_inner_y(z):7.3f}  屏前表面 Y={_front_y_at(z):7.3f}  "
+              f"间隙={_front_y_at(z)-_lip_inner_y(z):.3f}mm (唇在屏前方)")
 
     # 盖板自验: 覆盖范围 / 避让 / FPC 缺口
     print("-" * 70)
