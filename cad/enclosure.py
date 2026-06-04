@@ -190,10 +190,13 @@ DETENT_D = 2.0                            # 卡扣凸点直径
 DETENT_H = 0.8                            # 凸点高
 DETENT_Y = LID_Y_BACK - 3.0               # detent Y 靠后(抽出)端, 在盖板边缘下
 DETENT_X = INNER_HALF_W - 0.3             # 凸点外移嵌进侧壁(原-1.5悬空0.5mm成独立实体), 仍凸入槽~0.7
-# 抽出端(+Y)手指凸耳
-LID_TAB_W = 16.0                          # 手指凸耳宽(沿 X)
-LID_TAB_L = 8.0                           # 凸耳沿 +Y 伸出长
-LID_TAB_T = 3.0                           # 凸耳厚
+# 抽出端(+Y)防滑横条 (取代凸耳: 凸耳与Type-C数据线打架)
+# 顶面靠后端印几道沿 X 的凸棱, 大拇指压住向 +Y 推开上盖.
+LID_RIDGE_W = 26.0                        # 横条宽(沿 X, 拇指宽)
+LID_RIDGE_THK = 1.2                       # 每条沿 Y 厚
+LID_RIDGE_PROUD = 0.7                     # 凸出盖板顶面高度
+LID_RIDGE_COUNT = 5                       # 条数
+LID_RIDGE_PITCH = 2.6                     # 条间距(沿 Y)
 # 盖板前缘(-Y) FPC 缺口 (对应新排座 -33, 在盖板前缘中央)
 LID_FPC_NOTCH_W = 20.0                    # FPC 缺口宽
 LID_FPC_NOTCH_D = 8.0                     # 缺口沿 +Y 深入
@@ -520,10 +523,14 @@ def make_lid():
 
         # 2) 左右边缘即滑条: 主体两侧 X 已到 ±body_x_half(伸入侧唇下被压). 无需额外滑条.
 
-        # 3) +Y 手指凸耳 (tab): 抽出(后)端伸出, 便于手指抠住向 +Y 抽拉.
-        with Locations((0, body_y_back + LID_TAB_L / 2, LID_BOT_Z)):
-            Box(LID_TAB_W, LID_TAB_L, LID_TAB_T,
-                align=(Align.CENTER, Align.CENTER, Align.MIN))
+        # 3) 防滑横条 (取代凸耳): 顶面靠 +Y(后)端印几道沿 X 凸棱, 拇指压住推开.
+        #    凸棱凸出盖板顶面 LID_RIDGE_PROUD; 居中 X, 不伸出后缘(不碰 Type-C 数据线).
+        ridge_y0 = body_y_back - 2.0    # 最后一条距后缘 2mm
+        for i in range(LID_RIDGE_COUNT):
+            ry = ridge_y0 - i * LID_RIDGE_PITCH
+            with Locations((0, ry, LID_TOP_Z)):
+                Box(LID_RIDGE_W, LID_RIDGE_THK, LID_RIDGE_PROUD,
+                    align=(Align.CENTER, Align.CENTER, Align.MIN))
 
         # 4) 前缘(-Y) FPC 缺口 (中央, 宽 LID_FPC_NOTCH_W, 沿 +Y 深入, 对应排座 -33)
         with Locations((0, body_y_front, LID_BOT_Z - 0.01)):
@@ -633,7 +640,7 @@ def main():
     print("-" * 70)
     lb = lid.bounding_box()
     print(f"[lid] 覆盖 X {lb.min.X:.2f}..{lb.max.X:.2f}  Y {lb.min.Y:.2f}..{lb.max.Y:.2f}  Z {lb.min.Z:.2f}..{lb.max.Z:.2f}")
-    print(f"[lid] 抽出端(含手指凸耳, +Y) Y 到 {lb.max.Y:.2f}; 主体不超核心盒 X(±{BASE_OUT_W/2:.2f})")
+    print(f"[lid] 抽出端(+Y, 顶面防滑横条) Y 到 {lb.max.Y:.2f}; 主体不超核心盒 X(±{BASE_OUT_W/2:.2f})")
     print(f"[抽拉] 沿 +Y(向后)抽出; 仓 Y [{POCKET_Y_FRONT:.2f}..{POCKET_Y_BACK:.2f}] (核心盒中心 CORE_CY={CORE_CY})")
     print(f"[后抽可行] 后壁顶 z={BACK_WALL_H} < 盖板底 z={LID_BOT_Z} ? {BACK_WALL_H < LID_BOT_Z}")
     print(f"[避让-Type-C] 开口 z {TYPEC_CENTER_Z-TYPEC_H/2:.2f}..{TYPEC_CENTER_Z+TYPEC_H/2:.2f}; 顶 < 盖板底 {LID_BOT_Z} ? {TYPEC_CENTER_Z+TYPEC_H/2 < LID_BOT_Z}")
