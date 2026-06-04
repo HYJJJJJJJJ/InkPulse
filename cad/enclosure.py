@@ -148,7 +148,7 @@ INNER_HALF_D = BASE_INNER_D / 2           # 25.52 (前后内壁面 Y=CORE_CY±25
 POCKET_Y_FRONT = CORE_CY - INNER_HALF_D   # 前内壁面 = -36.52
 POCKET_Y_BACK = CORE_CY + INNER_HALF_D    # 后内壁面 = +14.52
 # 盖板覆盖 Y 范围: 前缘到前内壁面附近(伸入前唇/挡位区), 后缘到后内壁面(抽出口处).
-LID_Y_FRONT = POCKET_Y_FRONT + LID_FIT_GAP    # 前缘 -36.17 (留滑动间隙, 抵挡位)
+LID_Y_FRONT = POCKET_Y_FRONT + 2.0 + LID_FIT_GAP    # 前缘抵在前挡条(STOP_T=2.0)的+Y面外, 不再压进挡条
 LID_Y_BACK = POCKET_Y_BACK                    # 后缘到后内壁面 (+Y 抽出口处)
 # 导轨唇/槽 (在左右 ±X 内壁顶部, 沿 Y 贯通)
 LIP_REACH = 1.5                           # 唇向内(沿 X)伸出量
@@ -281,6 +281,16 @@ def make_back_cover():
             (BOSS_X, -BOSS_Y, -0.01), (-BOSS_X, -BOSS_Y, -0.01),
         ):
             Cylinder(SCREW_CLEAR_D / 2, slot_total_h,
+                     align=(Align.CENTER, Align.CENTER, Align.MIN),
+                     mode=Mode.SUBTRACT)
+
+        # boss 让位: 凸台(plate以上)给 bezel 角立柱(Φ5)让 Φ6 空腔, 避免边框顶到立柱;
+        # 盖板(z<plate)仍是 Φ2.7 螺丝孔, 盖板坐于立柱顶、螺丝穿入.
+        with Locations(
+            (BOSS_X, BOSS_Y, BACK_COVER_PLATE_T), (-BOSS_X, BOSS_Y, BACK_COVER_PLATE_T),
+            (BOSS_X, -BOSS_Y, BACK_COVER_PLATE_T), (-BOSS_X, -BOSS_Y, BACK_COVER_PLATE_T),
+        ):
+            Cylinder((BOSS_D + 1.0) / 2, plug_depth + 0.01,
                      align=(Align.CENTER, Align.CENTER, Align.MIN),
                      mode=Mode.SUBTRACT)
 
@@ -494,13 +504,15 @@ def make_assembly(bezel, back_cover, base, lid=None):
     # 推导: local+Y->(0,0.5,0.866)上坡, local-Z(屏面)->(0,-0.866,0.5)法线 => R=Rot(-120,0,0)*Rot(0,0,180).
     R = Rot(-120, 0, 0) * Rot(0, 0, 180)
 
-    # 把 bezel 局部"屏底-背面"角点 (0,-H/2, BEZEL_DEPTH) 旋转后对到 A, 解出平移 T.
-    # (Location*Vector 不支持; 用 (R*Pos(p)).position 得到旋转后的点)
-    p_rot = (R * Pos(0, -BEZEL_OUT_H / 2, BEZEL_DEPTH)).position
+    # 靠斜墙的是"后盖外表面"(在 bezel 局部 z = BEZEL_DEPTH+BACK_COVER_PLATE_T).
+    # 把该外表面的屏底角点对到斜墙铰接点 A, 解出平移 T (整体比仅bezel外移一个后盖厚).
+    p_rot = (R * Pos(0, -BEZEL_OUT_H / 2, BEZEL_DEPTH + BACK_COVER_PLATE_T)).position
     T = A - p_rot
 
     bezel_a = Pos(T.X, T.Y, T.Z) * R * bezel
-    bc_local = Pos(0, 0, BEZEL_DEPTH - BACK_COVER_PLATE_T) * back_cover
+    # 后盖须翻转(绕Y转180)使凸台朝 -z 插入背腔; 盖板(外侧)贴屏框背面外, 凸台伸到泡棉处.
+    # 翻转后平移 +z 到 BEZEL_DEPTH+PLATE: 盖板占[7.2,9.2](背面外), 凸台占[3.95,7.2](腔内压泡棉).
+    bc_local = Pos(0, 0, BEZEL_DEPTH + BACK_COVER_PLATE_T) * Rot(0, 180, 0) * back_cover
     back_a = Pos(T.X, T.Y, T.Z) * R * bc_local
 
     children = [base_a, bezel_a, back_a]
