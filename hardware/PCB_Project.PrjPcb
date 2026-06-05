@@ -1749,6 +1749,10 @@ DItemRevisionGUID=
 GenerateClassCluster=0
 DocumentUniqueId=TRVMRFLP
 
+[GeneratedDocument1]
+DocumentPath=Project Outputs for PCB_Project\Design Rule Check - PCB1.html
+DItemRevisionGUID=
+
 [Configuration1]
 Name=Sources
 ParameterCount=0
