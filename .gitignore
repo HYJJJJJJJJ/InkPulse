@@ -17,6 +17,7 @@
 *.err
 *.Generated
 Captures/
+**/Project\ Outputs\ for\ PCB_Project/
 
 # ---- 3. 本地用户工作区状态与偏好设置 (因人而异，无需共享) ----
 *.Txt
