@@ -694,6 +694,9 @@ def main():
     # 装配体 (含盖板 + 真实PCB, 闭合位)
     asm = make_assembly(bezel, back_cover, base, lid, pcb=pcb_placed)
     export_step(asm, str(OUT / "assembly.step"))
+    # 仅外壳装配 (4件, 不含PCB), 另存
+    asm_shell = make_assembly(bezel, back_cover, base, lid)
+    export_step(asm_shell, str(OUT / "assembly_shell.step"))
     print("-" * 70)
     print("assembly bbox:", asm.bounding_box().size)
     print("exported to", OUT)
