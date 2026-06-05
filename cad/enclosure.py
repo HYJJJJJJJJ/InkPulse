@@ -563,7 +563,7 @@ def make_lid():
 # ============================================================
 # 装配体: 60 度仰角姿态
 # ============================================================
-def make_assembly(bezel, back_cover, base, lid=None):
+def make_assembly(bezel, back_cover, base, lid=None, pcb=None):
     from build123d import Vector
     base_a = Pos(0, 0, 0) * base
 
@@ -592,6 +592,9 @@ def make_assembly(bezel, back_cover, base, lid=None):
     # 盖板: 与 base 同坐标系, 闭合位(make_lid 已含正确 z), 直接放入(底座不旋转).
     if lid is not None:
         children.append(Pos(0, 0, 0) * lid)
+    # 真实 PCB (已按装配姿态放好的 located shape): 直接并入预览.
+    if pcb is not None:
+        children.append(pcb)
 
     asm = Compound(label="InkPulse_assembly", children=children)
     return asm
@@ -665,8 +668,22 @@ def main():
     export_step(lid, str(OUT / "lid.step"))
     export_stl(lid, str(OUT / "lid.stl"))
 
-    # 装配体 (含盖板, 闭合位)
-    asm = make_assembly(bezel, back_cover, base, lid)
+    # 把真实 PCB 组进装配预览: 重定心->绕Z翻180(Type-C朝+Y)->抬到螺柱顶->移到 CORE_CY
+    pcb_placed = None
+    pcb_path = Path(__file__).resolve().parent.parent / "hardware" / "PCB1.step"
+    if pcb_path.exists():
+        from build123d import import_step
+        _pcb = import_step(str(pcb_path))
+        _bd = max((s for s in _pcb.solids() if s.bounding_box().size.Z < 3),
+                  key=lambda s: s.bounding_box().size.X * s.bounding_box().size.Y)
+        _b = _bd.bounding_box()
+        _ox, _oy, _oz = (_b.min.X + _b.max.X) / 2, (_b.min.Y + _b.max.Y) / 2, _b.min.Z
+        pcb_placed = (Pos(0, CORE_CY, BASE_FLOOR_T + STANDOFF_H)
+                      * Rot(0, 0, 180) * Pos(-_ox, -_oy, -_oz)) * _pcb
+        print(f"[pcb] 已组入装配预览 (中心->CORE_CY={CORE_CY}, 翻转使Type-C朝+Y, 坐螺柱顶)")
+
+    # 装配体 (含盖板 + 真实PCB, 闭合位)
+    asm = make_assembly(bezel, back_cover, base, lid, pcb=pcb_placed)
     export_step(asm, str(OUT / "assembly.step"))
     print("-" * 70)
     print("assembly bbox:", asm.bounding_box().size)
