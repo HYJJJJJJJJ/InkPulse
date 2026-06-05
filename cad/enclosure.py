@@ -14,7 +14,7 @@ from pathlib import Path
 from build123d import (
     BuildPart, BuildSketch, Box, Cylinder, Rectangle, Plane, Pos, Rot,
     Locations, GridLocations, Mode, Align, Axis, fillet, chamfer, extrude,
-    Compound, export_step, export_stl, Vector,
+    Compound, export_step, export_stl, Vector, SlotOverall,
 )
 
 # ============================================================
@@ -48,8 +48,8 @@ HOLE_D = 3.2              # 实测 Φ3.2 (R1.59)
 # 安装孔实测 (±30, ±20); Type-C 在 -Y 边中点, FPC 排座在 +Y 边中点
 M3_POS_X = 30.0
 M3_POS_Y = 20.0
-TYPEC_W = 12.5            # 开口宽 (body 11.3 + 插头overmold余量)
-TYPEC_H = 5.0            # 开口高 (开口 z 5.2..10.2, 连接器5.70..9.60 上下各~0.5余量; <后壁顶10.3)
+TYPEC_W = 9.6             # 开口宽 (USB-C插头8.34 + 余量; obround圆端长圆形)
+TYPEC_H = 3.4             # 开口高 (插头2.56/受口3.16 + 余量; 圆端半径=H/2=1.7; 开口z6.0..9.4)
 TYPEC_PORT_Z = STANDOFF_H + 1.7    # 口中心离内底: 螺柱4 + 1.7 = 5.7
 # === 核心盒整体前移 (让 ~20mm 短 FPC 够到屏出线点) ===
 # 核心盒(PCB仓/螺柱/Type-C壁/FPC缺口)中心沿 -Y 前移到 CORE_CY; 底脚板仍居中(0,0).
@@ -376,10 +376,19 @@ def make_base():
                              align=(Align.CENTER, Align.CENTER, Align.MAX),
                              mode=Mode.SUBTRACT)
 
-        # 4) 后壁 Type-C 开口 (后壁在 +Y 侧, 随核心盒前移), 中心离底 TYPEC_CENTER_Z
+        # 4) 后壁 Type-C 开口 (后壁在 +Y 侧): USB-C 圆端长圆形(obround), 非方孔.
+        #    在后壁所在的 X-Z 平面画 SlotOverall(宽 TYPEC_W, 高 TYPEC_H, 圆端 r=TYPEC_H/2), 沿 Y 穿透.
         wall_y = CORE_CY + BASE_OUT_D / 2
-        with Locations((0, wall_y, TYPEC_CENTER_Z)):
-            Box(TYPEC_W, BASE_WALL * 3, TYPEC_H,
+        tc_plane = Plane(origin=(0, wall_y, TYPEC_CENTER_Z), x_dir=(1, 0, 0), z_dir=(0, 1, 0))
+        with BuildSketch(tc_plane):
+            SlotOverall(TYPEC_W, TYPEC_H)
+        extrude(amount=BASE_WALL * 2, both=True, mode=Mode.SUBTRACT)
+        # 内侧加宽让位(counterbore): 连接器壳体~11.3宽、前端伸入壁内~1.15mm,
+        #   内侧挖宽腔避让, 外侧保持贴合 obround(可见端口).
+        inner_y = wall_y - BASE_WALL
+        relief_w, relief_h, relief_depth = 12.0, 4.4, 1.8
+        with Locations((0, inner_y + relief_depth / 2, TYPEC_CENTER_Z)):
+            Box(relief_w, relief_depth + 0.02, relief_h,
                 align=(Align.CENTER, Align.CENTER, Align.CENTER),
                 mode=Mode.SUBTRACT)
 
