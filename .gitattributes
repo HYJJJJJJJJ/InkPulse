@@ -12,11 +12,19 @@
 *.IntLib filter=lfs diff=lfs merge=lfs -text
 
 # ---- 3D 模型与高级图形 (体积极大，必须 LFS) ----
+# STEP/STP: 实体模型 (Altium 3D 体 + build123d 导出)
 *.Step filter=lfs diff=lfs merge=lfs -text
 *.step filter=lfs diff=lfs merge=lfs -text
 *.stp filter=lfs diff=lfs merge=lfs -text
 *.3djson filter=lfs diff=lfs merge=lfs -text
-
+# 网格 / 3D 打印 / 通用 3D 交换格式 (build123d、Slicer、外部 CAD)
+*.stl filter=lfs diff=lfs merge=lfs -text
+*.3mf filter=lfs diff=lfs merge=lfs -text
+*.obj filter=lfs diff=lfs merge=lfs -text
+*.glb filter=lfs diff=lfs merge=lfs -text
+*.ply filter=lfs diff=lfs merge=lfs -text
+*.amf filter=lfs diff=lfs merge=lfs -text
+*.brep filter=lfs diff=lfs merge=lfs -text
 # ---- 生产输出与设计快照 (通常为大文件或非文本) ----
 *.pdf filter=lfs diff=lfs merge=lfs -text
 *.zip filter=lfs diff=lfs merge=lfs -text

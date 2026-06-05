@@ -55,3 +55,12 @@ Captures/
 .DS_Store
 Thumbs.db
 Desktop.ini
+# 头脑风暴可视化临时文件
+.superpowers/
+
+# Python
+__pycache__/
+cad/__pycache__/
+
+# ---- CAD 预览渲染图 (由 cad/render_preview.py 生成，可随时重跑，无需入库) ----
+cad/output/*.png
