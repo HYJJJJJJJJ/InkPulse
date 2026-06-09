@@ -98,8 +98,8 @@ void epd_wait_busy(void)
         if (waited % 2000 == 0) {
             ESP_LOGI(TAG, "  still busy %dms", waited);
         }
-        if (waited > 40000) {
-            ESP_LOGW(TAG, "  busy timeout(40s) — 检查复位/电源/引脚");
+        if (waited > 35000) {
+            ESP_LOGW(TAG, "  busy 35s超时");
             break;
         }
     }
@@ -110,14 +110,19 @@ void epd_init(void)
 {
     epd_reset();
 
-    // PWR: 电源设置(内部DC/DC, VGH/VGL=±20V, VDH/VDL=±15V) — UC8179 7.5BWR 通行值
+    // PWR: 规格书5字节默认 — 内部DC/DC, VCOM_SLEW=1, VGH/VGL=±20V, VDH/VDL=±14V, VDHR=3.0V
     epd_send_cmd(0x01);
-    epd_send_data(0x07); epd_send_data(0x07);
-    epd_send_data(0x3f); epd_send_data(0x3f);
+    epd_send_data(0x07); epd_send_data(0x17);
+    epd_send_data(0x3a); epd_send_data(0x3a); epd_send_data(0x03);
+
+    // BTST: 升压软启动(规格书默认)
+    epd_send_cmd(0x06);
+    epd_send_data(0x17); epd_send_data(0x17);
+    epd_send_data(0x17); epd_send_data(0x17);
 
     epd_send_cmd(0x04);   // PON 上电
-    vTaskDelay(pdMS_TO_TICKS(100));
-    epd_wait_busy();
+    // 注: 本板PON后BUSY不回高(实测), 故不等BUSY, 固定延时让升压ramp; DRF刷新处仍正常等BUSY
+    vTaskDelay(pdMS_TO_TICKS(800));
 
     epd_send_cmd(0x00); epd_send_data(0x0F);   // PSR: BWR + OTP LUT, booster on
 
