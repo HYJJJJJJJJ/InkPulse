@@ -1,4 +1,6 @@
-{"type":"user","message":{"role":"user"}}
-{"type":"assistant","message":{"role":"assistant","usage":{"input_tokens":100,"output_tokens":40,"cache_read_input_tokens":10}}}
-{"type":"assistant","message":{"role":"assistant","usage":{"input_tokens":60,"output_tokens":20}}}
+{"type":"user","timestamp":"2026-06-09T12:00:00.000Z","message":{"role":"user"}}
+{"type":"assistant","timestamp":"2026-06-09T12:00:01.000Z","message":{"role":"assistant","usage":{"input_tokens":100,"output_tokens":40,"cache_read_input_tokens":10}}}
+{"type":"assistant","timestamp":"2026-06-09T13:00:00.000Z","message":{"role":"assistant","usage":{"input_tokens":60,"output_tokens":20}}}
+{"type":"assistant","timestamp":"2026-05-01T12:00:00.000Z","message":{"role":"assistant","usage":{"input_tokens":9999,"output_tokens":9999}}}
+{"type":"assistant","message":{"role":"assistant","usage":{"input_tokens":5555,"output_tokens":5555}}}
 {"broken line not json}
