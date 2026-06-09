@@ -1,0 +1,4 @@
+{"type":"user","message":{"role":"user"}}
+{"type":"assistant","message":{"role":"assistant","usage":{"input_tokens":100,"output_tokens":40,"cache_read_input_tokens":10}}}
+{"type":"assistant","message":{"role":"assistant","usage":{"input_tokens":60,"output_tokens":20}}}
+{"broken line not json}
