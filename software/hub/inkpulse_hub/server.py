@@ -40,4 +40,34 @@ def create_app(cfg: Config) -> FastAPI:
         state.set_claude_status(data.get("state", "idle"), data.get("project"))
         return JSONResponse({"ok": True})
 
+    # ---- 待办 Web UI 与 API ----
+    import os
+    from fastapi.responses import HTMLResponse
+
+    _html_path = os.path.join(os.path.dirname(__file__), "web", "todos.html")
+
+    @app.get("/todos", response_class=HTMLResponse)
+    def todos_page():
+        with open(_html_path, "r", encoding="utf-8") as fh:
+            return HTMLResponse(fh.read())
+
+    @app.get("/api/todos")
+    def api_list():
+        return [t.__dict__ for t in state.todos.list()]
+
+    @app.post("/api/todos")
+    async def api_add(request: Request):
+        data = await request.json()
+        return state.todos.add(data["text"]).__dict__
+
+    @app.post("/api/todos/{tid}/toggle")
+    def api_toggle(tid: str):
+        state.todos.toggle(tid)
+        return {"ok": True}
+
+    @app.delete("/api/todos/{tid}")
+    def api_delete(tid: str):
+        state.todos.delete(tid)
+        return {"ok": True}
+
     return app
