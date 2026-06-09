@@ -1,0 +1,9 @@
+refresh:
+  min_interval_s: 60
+  periodic_s: 600
+sources:
+  claude_logs: ~/.claude/projects
+  photos_dir: ~/inkpulse/photos
+  todos_store: ~/inkpulse/todos.json
+layout:
+  widgets: [header_clock_env, claude_status, usage, todos]
