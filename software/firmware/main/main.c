@@ -4,8 +4,14 @@
 #include "esp_log.h"
 #include "htu21d.h"
 #include "epd_uc8179.h"
+#include "wifi_prov.h"
+#include "frame_client.h"
 
-static const char *TAG = "verify";
+static const char *TAG = "inkpulse";
+
+// 定义 INKPULSE_VERIFY(idf.py build -DINKPULSE_VERIFY=1 或在此 #define)
+// 可跑阶段一 bring-up harness: 温湿度 + 白/黑/红, 不联网。
+#ifdef INKPULSE_VERIFY
 
 void app_main(void)
 {
@@ -13,7 +19,6 @@ void app_main(void)
     ESP_LOGI(TAG, "  InkPulse 合并验证: 温湿度 + 屏幕");
     ESP_LOGI(TAG, "==================================================");
 
-    // ---------- 1) 温湿度 (I2C) ----------
     ESP_LOGI(TAG, "[1] HTU21D 温湿度:");
     htu21d_init();
     for (int i = 0; i < 3; i++) {
@@ -25,15 +30,41 @@ void app_main(void)
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
-    // ---------- 2) 屏幕 (SPI/UC8179) ----------
     ESP_LOGI(TAG, "[2] 墨水屏: 初始化 + 白/黑/红");
     epd_hal_init();
     epd_init();
-
-    ESP_LOGI(TAG, "    >>> 全白 (该白)"); epd_show_solid(0xFF, 0x00); vTaskDelay(pdMS_TO_TICKS(4000));
-    ESP_LOGI(TAG, "    >>> 全黑 (该黑)"); epd_show_solid(0x00, 0x00); vTaskDelay(pdMS_TO_TICKS(4000));
-    ESP_LOGI(TAG, "    >>> 全红 (该红)"); epd_show_solid(0xFF, 0xFF); vTaskDelay(pdMS_TO_TICKS(4000));
-
+    ESP_LOGI(TAG, "    >>> 全白"); epd_show_solid(0xFF, 0x00); vTaskDelay(pdMS_TO_TICKS(4000));
+    ESP_LOGI(TAG, "    >>> 全黑"); epd_show_solid(0x00, 0x00); vTaskDelay(pdMS_TO_TICKS(4000));
+    ESP_LOGI(TAG, "    >>> 全红"); epd_show_solid(0xFF, 0xFF); vTaskDelay(pdMS_TO_TICKS(4000));
     ESP_LOGI(TAG, "=== 验证结束 ===");
     while (1) vTaskDelay(pdMS_TO_TICKS(1000));
 }
+
+#else  // ---- 联网主循环(默认) ----
+
+void app_main(void)
+{
+    ESP_LOGI(TAG, "boot");
+    epd_hal_init();
+    epd_init();
+    htu21d_init();
+
+    if (!wifi_connect_or_provision()) {
+        // 进入配网模式(配完会自动重启), 给个干净白屏提示
+        epd_clear();
+        while (1) vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+
+    while (1) {
+        float t = 0, h = 0;
+        bool have_env = htu21d_read(&t, &h);
+        int next = 600;
+        int r = frame_fetch_and_show(have_env ? t : -100, have_env ? h : -100, &next);
+        ESP_LOGI(TAG, "fetch -> %s, next=%ds",
+                 r == 1 ? "新帧已刷" : r == 0 ? "未变(304)" : "出错/离线", next);
+        if (next < 30) next = 30;          // 下限保护
+        vTaskDelay(pdMS_TO_TICKS((uint32_t)next * 1000));
+    }
+}
+
+#endif

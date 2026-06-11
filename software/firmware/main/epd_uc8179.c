@@ -196,6 +196,34 @@ void epd_show_split(void)
     epd_refresh();
 }
 
+// ---- 阶段二: 从 Hub 双 plane 缓冲写屏 ----
+void epd_display_planes(const uint8_t *black, const uint8_t *red)
+{
+    static uint8_t tmp[EPD_ROW_BYTES];
+
+    // 0x10(B/W): 1=白 0=黑, Hub black(bit=1->黑) => 发 ~black
+    epd_send_cmd(0x10);
+    for (int y = 0; y < EPD_HEIGHT; y++) {
+        const uint8_t *src = black + y * EPD_ROW_BYTES;
+        for (int i = 0; i < EPD_ROW_BYTES; i++) tmp[i] = (uint8_t)~src[i];
+        epd_send_data_buf(tmp, EPD_ROW_BYTES);
+    }
+
+    // 0x13(RED): 按 EPD_RED_INVERT(bring-up 结论 1=红 => 直发)
+    epd_send_cmd(0x13);
+    for (int y = 0; y < EPD_HEIGHT; y++) {
+        const uint8_t *src = red + y * EPD_ROW_BYTES;
+#if EPD_RED_INVERT
+        for (int i = 0; i < EPD_ROW_BYTES; i++) tmp[i] = (uint8_t)~src[i];
+        epd_send_data_buf(tmp, EPD_ROW_BYTES);
+#else
+        epd_send_data_buf(src, EPD_ROW_BYTES);
+#endif
+    }
+
+    epd_refresh();
+}
+
 void epd_show_checker(void)
 {
     static uint8_t row[EPD_ROW_BYTES];
