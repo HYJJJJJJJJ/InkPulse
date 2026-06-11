@@ -17,24 +17,15 @@ static const char *TAG = "wifi";
 static EventGroupHandle_t s_eg;
 #define GOT_IP BIT0
 #define FAILED BIT1
-static int s_sta_retry = 0;
-#define STA_MAX_RETRY 8   // WPA3-SAE auth 偶发超时(reason=2), 重连即成, 重试足够次数再放弃
+#define STA_CONNECT_ATTEMPTS 15   // WPA3-SAE 直连不稳(reason 2/205 偶发), 主流程带 2s 间隔循环重连
 
 static void on_wifi(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
     if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
         wifi_event_sta_disconnected_t *d = (wifi_event_sta_disconnected_t *)data;
-        if (s_sta_retry < STA_MAX_RETRY) {
-            s_sta_retry++;
-            ESP_LOGW(TAG, "STA 断开 reason=%d rssi=%d, 重连 %d/%d",
-                     d ? d->reason : -1, d ? d->rssi : 0, s_sta_retry, STA_MAX_RETRY);
-            esp_wifi_connect();
-        } else {
-            ESP_LOGW(TAG, "STA 重连 %d 次仍失败, 进配网", s_sta_retry);
-            xEventGroupSetBits(s_eg, FAILED);
-        }
+        ESP_LOGW(TAG, "STA 断开 reason=%d rssi=%d", d ? d->reason : -1, d ? d->rssi : 0);
+        xEventGroupSetBits(s_eg, FAILED);
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
-        s_sta_retry = 0;
         xEventGroupSetBits(s_eg, GOT_IP);
     }
 }
@@ -164,15 +155,23 @@ bool wifi_connect_or_provision(void)
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &sta));
     ESP_ERROR_CHECK(esp_wifi_start());
-    esp_wifi_connect();
 
-    EventBits_t b = xEventGroupWaitBits(s_eg, GOT_IP | FAILED, pdTRUE, pdFALSE,
-                                        pdMS_TO_TICKS(40000));   // 留足 STA_MAX_RETRY 次 SAE 重连时间
-    if (b & GOT_IP) {
-        ESP_LOGI(TAG, "WiFi connected (SSID=%s)", ssid);
-        return true;
+    // WPA3-SAE 直连不稳: 回调里立即重连太快, AP 会限速/拒绝(reason 205/2 交替)。
+    // 改为主流程带 2s 间隔的循环重连, 每次给 8s 等握手, 比猛连可靠得多。
+    for (int att = 1; att <= STA_CONNECT_ATTEMPTS; att++) {
+        xEventGroupClearBits(s_eg, GOT_IP | FAILED);
+        esp_wifi_connect();
+        EventBits_t b = xEventGroupWaitBits(s_eg, GOT_IP | FAILED, pdTRUE, pdFALSE,
+                                            pdMS_TO_TICKS(8000));
+        if (b & GOT_IP) {
+            ESP_LOGI(TAG, "WiFi connected (SSID=%s, 第%d次)", ssid, att);
+            return true;
+        }
+        ESP_LOGW(TAG, "连接尝试 %d/%d 失败, 2s 后重试", att, STA_CONNECT_ATTEMPTS);
+        esp_wifi_disconnect();
+        vTaskDelay(pdMS_TO_TICKS(2000));
     }
-    ESP_LOGW(TAG, "连接失败, 进入配网");
+    ESP_LOGW(TAG, "连续 %d 次连接失败, 进入配网", STA_CONNECT_ATTEMPTS);
     start_provision_ap();
     return false;
 }
