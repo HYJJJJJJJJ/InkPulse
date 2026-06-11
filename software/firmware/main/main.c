@@ -55,6 +55,10 @@ void app_main(void)
         while (1) vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
+    // 联网成功, 首帧前全白清屏一次: 消除阶段一红测试图案的 BWR 红残影(ghosting)。
+    // OTP LUT 单次全刷对红粒子清除不彻底, 开机做一次干净 clear 再写仪表盘。
+    epd_clear();
+
     while (1) {
         float t = 0, h = 0;
         bool have_env = htu21d_read(&t, &h);

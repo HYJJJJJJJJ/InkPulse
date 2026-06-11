@@ -108,6 +108,7 @@ bool wifi_connect_or_provision(void)
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     wifi_init_config_t ic = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&ic));
+    s_eg = xEventGroupCreate();   // 提前创建: 配网分支收到 IP/断连事件时 on_wifi 也会用到它
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, on_wifi, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, on_wifi, NULL));
 
@@ -115,9 +116,20 @@ bool wifi_connect_or_provision(void)
     if (!load_creds(ssid, pass)) {
         // wifi_provisioning 需要默认 STA netif
         esp_netif_create_default_wifi_sta();
-        // ① 优先 BLE 配网
+        // ① 优先 BLE 配网。成功后 wifi_prov_mgr 已用凭据连上 WiFi:
+        //    不重启, 复用该连接直接进主循环, 让 BLE 把"配网成功"回报给 App,
+        //    避免 App 报 "Device disconnected"(过早 esp_restart 打断 BLE 收尾)。
         if (ble_prov_run(PROV_BLE_TIMEOUT_S)) {
-            ESP_LOGI(TAG, "BLE 配网成功, 重启走 STA");
+            ESP_LOGI(TAG, "BLE 配网成功, 复用已建立连接(不重启)");
+            xEventGroupClearBits(s_eg, FAILED);   // 清掉配网过程中的瞬断标志
+            EventBits_t b = xEventGroupWaitBits(s_eg, GOT_IP, pdTRUE, pdFALSE,
+                                                pdMS_TO_TICKS(15000));
+            if (b & GOT_IP) {
+                ESP_LOGI(TAG, "已联网(BLE 配网)");
+                return true;
+            }
+            // 少见: mgr 连上但 DHCP 未拿到 IP → 重启用 NVS 凭据走 STA 兜底
+            ESP_LOGW(TAG, "配网后未拿到 IP, 重启走 NVS-STA 兜底");
             esp_restart();
         }
         // ② BLE 超时/失败 → SoftAP 网页兜底
@@ -127,7 +139,6 @@ bool wifi_connect_or_provision(void)
     }
 
     esp_netif_create_default_wifi_sta();
-    s_eg = xEventGroupCreate();
     wifi_config_t sta = {0};
     strlcpy((char *)sta.sta.ssid, ssid, sizeof(sta.sta.ssid));
     strlcpy((char *)sta.sta.password, pass, sizeof(sta.sta.password));

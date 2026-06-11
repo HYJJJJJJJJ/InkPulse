@@ -31,6 +31,13 @@ void htu21d_init(void)
         .scl_speed_hz = 100000,
     };
     ESP_ERROR_CHECK(i2c_master_bus_add_device(s_bus, &dev_cfg, &s_dev));
+
+    // 软复位(0xFE): 把用户寄存器重置到默认(RH12/T14)。排查湿度通道读全 0 的异常。
+    uint8_t soft_reset = 0xFE;
+    esp_err_t re = i2c_master_transmit(s_dev, &soft_reset, 1, 200);
+    ESP_LOGI(TAG, "软复位 0xFE: %s", esp_err_to_name(re));
+    vTaskDelay(pdMS_TO_TICKS(20));   // 软复位耗时 <15ms
+
     ESP_LOGI(TAG, "I2C init (SCL=%d SDA=%d addr=0x%02X)", HTU_SCL, HTU_SDA, HTU_ADDR);
 }
 
@@ -49,6 +56,7 @@ static bool measure(uint8_t cmd, uint16_t *raw)
         return false;
     }
     *raw = ((uint16_t)rx[0] << 8 | rx[1]) & 0xFFFC;
+    ESP_LOGI(TAG, "cmd=0x%02X rx=[%02X %02X %02X] raw=%u", cmd, rx[0], rx[1], rx[2], *raw);
     return true;
 }
 
