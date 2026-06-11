@@ -7,3 +7,7 @@ sources:
   todos_store: ~/inkpulse/todos.json
 layout:
   widgets: [header_clock_env, claude_status, usage, todos]
+usage:
+  # 5h 滚动窗口 token 估算上限(净输入+输出), 用量进度条按此算占用比例;
+  # 订阅制无官方配额口径, 按你的档位手动调; 设 null 则不显示进度条(n/a)。
+  window_token_limit: 2000000

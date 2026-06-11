@@ -34,9 +34,12 @@ class HubState:
         now = now if now is not None else time.time()
         return {
             "claude": self.claude,
-            "usage": collect_usage(self.cfg.claude_logs),
+            "usage": collect_usage(
+                self.cfg.claude_logs,
+                window_token_limit=self.cfg.usage_window_token_limit,
+            ),
             "todos": self.todos.list(),
-            "photo": pick_photo(self.cfg.photos_dir),
+            "photo": pick_photo(self.cfg.photos_dir, now=now),
             "env": dict(self.env),
             "clock": self._clock(now),
         }
