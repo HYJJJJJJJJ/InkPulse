@@ -17,15 +17,26 @@ static const char *TAG = "wifi";
 static EventGroupHandle_t s_eg;
 #define GOT_IP BIT0
 #define FAILED BIT1
+static int s_sta_retry = 0;
+#define STA_MAX_RETRY 8   // WPA3-SAE auth 偶发超时(reason=2), 重连即成, 重试足够次数再放弃
 
 static void on_wifi(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
     if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
         wifi_event_sta_disconnected_t *d = (wifi_event_sta_disconnected_t *)data;
-        ESP_LOGW(TAG, "STA 断开 reason=%d rssi=%d", d ? d->reason : -1, d ? d->rssi : 0);
-        xEventGroupSetBits(s_eg, FAILED);
-    } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP)
+        if (s_sta_retry < STA_MAX_RETRY) {
+            s_sta_retry++;
+            ESP_LOGW(TAG, "STA 断开 reason=%d rssi=%d, 重连 %d/%d",
+                     d ? d->reason : -1, d ? d->rssi : 0, s_sta_retry, STA_MAX_RETRY);
+            esp_wifi_connect();
+        } else {
+            ESP_LOGW(TAG, "STA 重连 %d 次仍失败, 进配网", s_sta_retry);
+            xEventGroupSetBits(s_eg, FAILED);
+        }
+    } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
+        s_sta_retry = 0;
         xEventGroupSetBits(s_eg, GOT_IP);
+    }
 }
 
 static bool load_creds(char *ssid, char *pass)
@@ -156,7 +167,7 @@ bool wifi_connect_or_provision(void)
     esp_wifi_connect();
 
     EventBits_t b = xEventGroupWaitBits(s_eg, GOT_IP | FAILED, pdTRUE, pdFALSE,
-                                        pdMS_TO_TICKS(15000));
+                                        pdMS_TO_TICKS(40000));   // 留足 STA_MAX_RETRY 次 SAE 重连时间
     if (b & GOT_IP) {
         ESP_LOGI(TAG, "WiFi connected (SSID=%s)", ssid);
         return true;
