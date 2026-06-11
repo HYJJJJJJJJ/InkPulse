@@ -45,9 +45,10 @@ case "$cmd" in
     setup)
         idf.py set-target "$TARGET" ;;
     build)
-        idf.py build ;;
+        # 显式 =0: 清掉 verify 残留在 CMake cache 里的 INKPULSE_VERIFY, 否则会一直跑验证模式
+        idf.py -DINKPULSE_VERIFY=0 build ;;
     verify)
-        # bring-up 验证模式: 注入 INKPULSE_VERIFY 宏
+        # bring-up 验证模式: 注入 INKPULSE_VERIFY 宏(温湿度 + 白黑红+分屏+棋盘, 不联网)
         idf.py -DINKPULSE_VERIFY=1 build ;;
     flash)
         idf.py "${PORT_ARGS[@]}" flash "$@" ;;

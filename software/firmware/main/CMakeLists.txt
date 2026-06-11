@@ -19,3 +19,9 @@ idf_component_register(
         wifi_provisioning  # BLE 配网
         bt                 # NimBLE
 )
+
+# 把 idf.py -DINKPULSE_VERIFY=1 的 CMake 变量转成 C 编译宏, 否则 main.c 的
+# #ifdef INKPULSE_VERIFY 看不到它(bring-up 验证模式: 温湿度 + 测试图案, 不联网)。
+if(INKPULSE_VERIFY)
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE INKPULSE_VERIFY=1)
+endif()

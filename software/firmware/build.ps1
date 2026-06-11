@@ -40,7 +40,7 @@ else { $cmd = 'build'; $rest = @() }
 
 switch ($cmd) {
     'setup'   { idf.py set-target $Target }
-    'build'   { idf.py build }
+    'build'   { idf.py -DINKPULSE_VERIFY=0 build }
     'verify'  { idf.py -DINKPULSE_VERIFY=1 build }
     'flash'   { idf.py @PortArgs flash @rest }
     'monitor' { idf.py @PortArgs monitor @rest }
