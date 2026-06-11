@@ -34,6 +34,9 @@ def render_frame(cfg: Config, state: dict) -> Frame:
     else:
         from PIL import ImageDraw
         d = ImageDraw.Draw(img)
+        # 关抗锯齿: 墨水屏只有黑/白/红, 抗锯齿灰边会在三色量化(to_planes 严格相等)时
+        # 丢失, 导致小字笔画发虚看不清。1-bit 模式让文字渲染为纯黑/白。
+        d.fontmode = "1"
         for name in cfg.layout:
             z = ZONES.get(name)
             if z is None:
