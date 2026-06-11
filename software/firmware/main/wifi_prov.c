@@ -1,5 +1,6 @@
 #include "wifi_prov.h"
 #include "net_config.h"
+#include "ble_prov.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_netif.h"
@@ -112,6 +113,15 @@ bool wifi_connect_or_provision(void)
 
     char ssid[33] = {0}, pass[65] = {0};
     if (!load_creds(ssid, pass)) {
+        // wifi_provisioning 需要默认 STA netif
+        esp_netif_create_default_wifi_sta();
+        // ① 优先 BLE 配网
+        if (ble_prov_run(PROV_BLE_TIMEOUT_S)) {
+            ESP_LOGI(TAG, "BLE 配网成功, 重启走 STA");
+            esp_restart();
+        }
+        // ② BLE 超时/失败 → SoftAP 网页兜底
+        ESP_LOGW(TAG, "回退 SoftAP 配网");
         start_provision_ap();
         return false;
     }
