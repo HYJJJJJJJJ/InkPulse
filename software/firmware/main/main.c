@@ -36,6 +36,10 @@ void app_main(void)
     ESP_LOGI(TAG, "    >>> 全白"); epd_show_solid(0xFF, 0x00); vTaskDelay(pdMS_TO_TICKS(4000));
     ESP_LOGI(TAG, "    >>> 全黑"); epd_show_solid(0x00, 0x00); vTaskDelay(pdMS_TO_TICKS(4000));
     ESP_LOGI(TAG, "    >>> 全红"); epd_show_solid(0xFF, 0xFF); vTaskDelay(pdMS_TO_TICKS(4000));
+    ESP_LOGI(TAG, "    >>> 上黑下白 / 上不红下红(分屏: 验方向与极性)");
+    epd_show_split(); vTaskDelay(pdMS_TO_TICKS(4000));
+    ESP_LOGI(TAG, "    >>> 棋盘格(验行列寻址)");
+    epd_show_checker(); vTaskDelay(pdMS_TO_TICKS(4000));
     ESP_LOGI(TAG, "=== 验证结束 ===");
     while (1) vTaskDelay(pdMS_TO_TICKS(1000));
 }

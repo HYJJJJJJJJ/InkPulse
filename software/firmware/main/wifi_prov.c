@@ -75,6 +75,7 @@ static esp_err_t save_post(httpd_req_t *r)
 static void start_provision_ap(void)
 {
     ESP_LOGW(TAG, "进入 SoftAP 配网: 连 %s, 浏览器开 http://192.168.4.1", PROV_AP_SSID);
+    esp_wifi_stop();   // 先停掉 BLE 配网/STA 残留的 WiFi 状态, 否则切 AP 模式可能失败
     esp_netif_create_default_wifi_ap();
     wifi_config_t ap = { .ap = {
         .ssid_len = strlen(PROV_AP_SSID),
