@@ -20,9 +20,11 @@ static EventGroupHandle_t s_eg;
 
 static void on_wifi(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
-    if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED)
+    if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
+        wifi_event_sta_disconnected_t *d = (wifi_event_sta_disconnected_t *)data;
+        ESP_LOGW(TAG, "STA 断开 reason=%d rssi=%d", d ? d->reason : -1, d ? d->rssi : 0);
         xEventGroupSetBits(s_eg, FAILED);
-    else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP)
+    } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP)
         xEventGroupSetBits(s_eg, GOT_IP);
 }
 
@@ -143,6 +145,11 @@ bool wifi_connect_or_provision(void)
     wifi_config_t sta = {0};
     strlcpy((char *)sta.sta.ssid, ssid, sizeof(sta.sta.ssid));
     strlcpy((char *)sta.sta.password, pass, sizeof(sta.sta.password));
+    // 支持 WPA3-SAE(如小米热点): 允许 WPA2/WPA3 混合 + PMF + H2E。否则手动 STA 直连
+    // 纯 WPA3 会在 SAE auth 阶段失败(BLE 配网走 wifi_prov_mgr 已默认支持, 此直连路径需显式开)。
+    sta.sta.threshold.authmode = WIFI_AUTH_WPA2_WPA3_PSK;
+    sta.sta.pmf_cfg.capable = true;
+    sta.sta.sae_pwe_h2e = WPA3_SAE_PWE_BOTH;
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &sta));
     ESP_ERROR_CHECK(esp_wifi_start());
