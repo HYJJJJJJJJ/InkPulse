@@ -1,5 +1,5 @@
 # inkpulse_hub/render/dither.py
-from PIL import Image
+from PIL import Image, ImageOps
 
 # 三色调色板：白/黑/红
 _PALETTE_RGB = [(255, 255, 255), (0, 0, 0), (255, 0, 0)]
@@ -16,7 +16,10 @@ def _palette_image() -> Image.Image:
 
 
 def dither_bwr(src: Image.Image, size: tuple[int, int]) -> Image.Image:
-    """缩放并以 Floyd–Steinberg 抖动量化到 白/黑/红 三色，返回 RGB 图。"""
-    img = src.convert("RGB").resize(size)
+    """等比缩放(保持原比例, letterbox 白边居中)并以 Floyd–Steinberg 抖动量化到
+    白/黑/红 三色，返回 RGB 图。避免硬缩放到 800×480 导致拉伸变形。"""
+    fitted = ImageOps.contain(src.convert("RGB"), size)   # 等比缩放, 完整放进 size 内
+    img = Image.new("RGB", size, (255, 255, 255))         # 白底画布
+    img.paste(fitted, ((size[0] - fitted.width) // 2, (size[1] - fitted.height) // 2))
     quant = img.quantize(palette=_palette_image(), dither=Image.FLOYDSTEINBERG)
     return quant.convert("RGB")
