@@ -82,8 +82,10 @@ esp_err_t ip_net_sta_connect(const char *ssid, const char *pass)
     strlcpy((char *)sta.sta.ssid,     ssid, sizeof(sta.sta.ssid));
     strlcpy((char *)sta.sta.password, pass, sizeof(sta.sta.password));
 
-    // WPA3-SAE 支持: 允许 WPA2/WPA3 混合 + PMF + H2E
-    sta.sta.threshold.authmode = WIFI_AUTH_WPA2_WPA3_PSK;
+    // 加密门槛设 WPA2_PSK(这是"最低"门槛, 同时接受 WPA2 与 WPA3 的 AP);
+    // 切勿用 WPA2_WPA3_PSK —— 它枚举值更高, 会把纯 WPA2 热点判为"不达标"而拒连(reason=211)。
+    // pmf/sae 保留以兼容 WPA3-SAE(对 WPA2 无害)。
+    sta.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
     sta.sta.pmf_cfg.capable    = true;
     sta.sta.sae_pwe_h2e        = WPA3_SAE_PWE_BOTH;
 
