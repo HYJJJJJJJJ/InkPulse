@@ -56,13 +56,14 @@ void app_main(void)
     disp->init();
     sensor->init();
     ip_net_init();
+    ip_net_prepare_sta();   // STA netif 必须在连接前创建(有凭据直连 / 无凭据 mgr 配网都需要),
+                            // 否则即使关联上 AP 也没 DHCP client、拿不到 IP。幂等。
 
     display_caps_t caps;
     disp->get_caps(&caps);
 
     char ssid[33]={0}, pass[65]={0};
     if (!creds_load(ssid,sizeof ssid,pass,sizeof pass)) {
-        ip_net_prepare_sta();
         if (!ble_provisioning()->run(PROV_BLE_TIMEOUT_S)) {
             // BLE 超时/失败 → SoftAP 起网页, 等用户配网后内部 esp_restart
             softap_provisioning()->run(0);
