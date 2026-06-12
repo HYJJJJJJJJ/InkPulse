@@ -1,0 +1,33 @@
+schema: spec-driven
+
+context: |
+  InkPulse —— 软硬件一体的桌面墨水屏(显示 Claude 工作状态/用量/待办/照片 + 时钟温湿度)。
+  - 固件: ESP32-S3 + UC8179 7.5" 800x480 黑白红(BWR)墨水屏, ESP-IDF v5.3.2。
+    已按 components 分层解耦: ip_hal/ip_display/ip_sensor/ip_net/ip_provisioning/ip_channel/ip_config + 薄 main。
+    接口用 ops 结构体(函数指针表 + 工厂函数); 换屏只改 ip_display、换数据源只改 ip_channel, 上层不动。
+    瘦客户端: 设备只拉 Hub 渲染好的 96000B 双 plane 帧并 blit; 配网走 BLE(主)+ SoftAP(兜底)。
+  - Hub(电脑端): Python + FastAPI + uvicorn + Pillow, 渲染 800x480 三色位图供设备 GET /frame 拉取
+    (ETag/304 去重、X-Next-Refresh 节拍); 采集 Claude 用量(解析 ~/.claude 日志)/待办(JSON+网页)/照片;
+    测试用 pytest。代码在 software/hub。
+  - 硬件: Altium PCB 工程(software 同级 hardware/); 外壳: build123d 参数化 3D 打印(cad/)。
+  约定: commit message 不加 Co-Authored-By / "Generated with" / 任何 AI 署名行;
+    git author 用 zengqx <zengqx1996@gmail.com>; 回复用中文。
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
