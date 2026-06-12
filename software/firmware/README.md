@@ -92,21 +92,27 @@ HTU21D（I2C）：SCL=GPIO2, SDA=GPIO1，地址 0x40。
 
 - body = 黑 plane(48000B) + 红 plane(48000B) = 96000B；行主序，每行 100 字节，MSB=最左像素。
 - 黑 plane bit=1→黑；红 plane bit=1→红。
-- 写屏映射（`epd_display_planes`，阶段一极性结论）：
+- 写屏映射（`ip_display` 的 `uc8179.c`，阶段一极性结论）：
   - 0x10(B/W) `1=白 0=黑` → 发 `~black`
   - 0x13(RED) `1=红` → 红 plane 直发（`EPD_RED_INVERT=0`；若实测红/白反相改 1）
 - 响应头 `ETag`（带引号哈希）、`X-Next-Refresh`（秒）；请求带 `If-None-Match`，命中返回 304 不刷屏。
 
-## 源文件
+## 代码结构（ESP-IDF components 分层）
 
-| 文件 | 职责 |
-|---|---|
-| `epd_uc8179.c/.h` | UC8179 驱动 + `epd_display_planes` 双 plane 写屏 |
-| `htu21d.c/.h` | HTU21D 温湿度（I2C） |
-| `ble_prov.c/.h` | BLE 配网（`wifi_provisioning` + NimBLE，security1 + PoP） |
-| `wifi_prov.c/.h` | WiFi STA 连接 + NVS 凭据 + BLE→SoftAP 配网编排 + SoftAP 配网页 |
-| `frame_client.c/.h` | HTTP 拉帧 + ETag/304 + 离线缓存 + 写屏 |
-| `net_config.h` | Hub URL / 配网参数 |
-| `main.c` | 联网主循环（`INKPULSE_VERIFY` 宏切回 bring-up 验证）|
+固件按标准 components 分层解耦,`main` 只组装接口、不依赖具体实现。换屏/换数据源只需新增对应实现 component,上层零改动。接口用 ops 结构体(函数指针表 + 工厂函数)。
 
-详见 `../docs/superpowers/plans/2026-06-09-inkpulse-firmware-{driver,net}.md`。
+| component | 职责 | 公开接口 / 工厂 |
+|---|---|---|
+| `ip_hal` | SPI/I2C/GPIO 封装 + 板级引脚（`board_pins.h`） | `hal_spi_*` / `hal_i2c_*` |
+| `ip_display` | 墨水屏（通用 display 接口 + UC8179 实现 + selftest） | `display_if_t` / `uc8179_driver()` |
+| `ip_sensor` | 温湿度（sensor 接口 + HTU21D，读数带有效位） | `sensor_if_t` / `htu21d_sensor()` |
+| `ip_net` | WiFi STA 连接（WPA3-SAE + 带间隔循环重连） | `ip_net_init/prepare_sta/sta_connect` |
+| `ip_provisioning` | BLE/SoftAP 配网 + NVS 凭据 | `provisioning_if_t` / `ble_provisioning()` / `softap_provisioning()` / `creds_*` |
+| `ip_channel` | 数据源（channel 接口 + HTTP-Hub 拉帧/上报，**不碰显示**） | `channel_if_t` / `http_hub_channel()` |
+| `ip_config` | 编译期常量（Hub URL / 配网参数，`net_config.h`） | — |
+| `main` | app：纯接口组装 + 主循环编排（`INKPULSE_VERIFY` 切 selftest） | — |
+
+**换屏**：新增 `components/ip_display_xxx/` 提供 `display_if_t`，改 `main.c` 一行工厂 + CMake，上层（channel/sensor/net/app）零改动。
+**换数据源**：新增 channel 实现（如 BLE 传帧）提供 `channel_if_t`，同理。
+
+设计与实现计划见 `../docs/superpowers/specs/2026-06-12-inkpulse-firmware-layered-arch-design.md` 与 `../docs/superpowers/plans/2026-06-12-inkpulse-firmware-layered-arch.md`。
