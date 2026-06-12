@@ -7,6 +7,7 @@ dependencies = [
     "uvicorn>=0.29",
     "pillow>=10.0",
     "pyyaml>=6.0",
+    "cnlunar>=0.2",
 ]
 
 [project.optional-dependencies]

@@ -17,10 +17,11 @@ class Frame:
 
 # 默认布局各 widget 的固定分区
 ZONES = {
-    "header_clock_env": W.Zone(0, 0, WIDTH, 60),
-    "claude_status": W.Zone(0, 60, 480, 200),
-    "usage": W.Zone(480, 60, 320, 200),
-    "todos": W.Zone(0, 260, WIDTH, 220),
+    # header 两行(日期时间 + 农历)需 76px; 下方各区顺移, 总高仍 480
+    "header_clock_env": W.Zone(0, 0, WIDTH, 76),
+    "claude_status": W.Zone(0, 76, 480, 192),
+    "usage": W.Zone(480, 76, 320, 192),
+    "todos": W.Zone(0, 268, WIDTH, 212),
     "photo": W.Zone(0, 0, WIDTH, HEIGHT),  # 全屏照片布局
 }
 
@@ -43,11 +44,12 @@ def render_frame(cfg: Config, state: dict) -> Frame:
                 continue
             if name == "header_clock_env":
                 env = state.get("env", {})
-                W.draw_header(d, z, state.get("clock", ""), env.get("temp"), env.get("humidity"))
+                W.draw_header(d, z, state.get("clock", ""), state.get("lunar"),
+                              env.get("temp"), env.get("humidity"))
             elif name == "claude_status":
-                W.draw_claude_status(d, z, state["claude"])
+                W.draw_claude_status(d, z, state["claude"], state.get("now"))
             elif name == "usage":
-                W.draw_usage(d, z, state["usage"])
+                W.draw_usage(d, z, state["usage"], cfg.usage_budget_usd)
             elif name == "todos":
                 W.draw_todos(d, z, state.get("todos", []))
 

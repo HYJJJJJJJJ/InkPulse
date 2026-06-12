@@ -4,6 +4,7 @@ from PIL import ImageDraw, ImageFont
 from ..models import ClaudeStatus, Usage, TodoItem
 
 BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 
 STATE_LABEL = {
@@ -23,14 +24,12 @@ class Zone:
     h: int
 
 # 优先 CJK 字体，保证 /preview.png 能显示中文。
-# 跨平台 CJK 字体兜底：先 macOS，再 Linux 常见中文字体，
-# 最后退到 DejaVuSans（无中文字形）与 Pillow 默认位图字体。
 _CJK_FONT_PATHS = [
     # macOS
     "/System/Library/Fonts/PingFang.ttc",
     "/System/Library/Fonts/STHeiti Light.ttc",
     "/System/Library/Fonts/STHeiti Medium.ttc",
-    # Linux (文泉驿 / Noto CJK，apt 装 fonts-wqy-zenhei 或 fonts-noto-cjk)
+    # Linux (文泉驿 / Noto CJK)
     "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
     "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
@@ -54,49 +53,92 @@ def _font(size: int) -> ImageFont.ImageFont:
         return ImageFont.load_default()
 
 
-def draw_header(d: ImageDraw.ImageDraw, z: Zone, clock_text: str, temp, humidity) -> None:
-    f = _font(22)
-    d.text((z.x + 6, z.y + 8), clock_text, fill=BLACK, font=f)
+def _title_bar(d: ImageDraw.ImageDraw, z: Zone, text: str) -> int:
+    """黑底白字分区标题栏(结构性, 不用红)。返回标题栏下方内容起始 y。"""
+    h = 26
+    d.rectangle((z.x, z.y, z.x + z.w - 1, z.y + h), fill=BLACK)
+    d.text((z.x + 8, z.y + 3), text, fill=WHITE, font=_font(18))
+    return z.y + h + 6
+
+
+def _elapsed_text(since, now) -> str:
+    """状态持续时长: "已 N 分钟" / "已 N 小时"。无 since/now 返回空串。"""
+    if not since or not now:
+        return ""
+    sec = max(0, int(now - since))
+    if sec < 3600:
+        return f"已 {sec // 60} 分钟"
+    return f"已 {sec // 3600} 小时"
+
+
+def draw_header(d: ImageDraw.ImageDraw, z: Zone, clock_text: str, lunar, temp, humidity) -> None:
+    f1 = _font(22)
+    f2 = _font(18)
+    # 第一行: 日期(红强调) + 温湿度(黑)
+    d.text((z.x + 6, z.y + 6), clock_text, fill=RED, font=f1)
     t = f"{temp:.0f}C" if temp is not None else "n/a"
-    # 湿度仅在有效范围 0~100% 才显示; 传感器损坏/读失败会传负值, 此时只显示温度,
-    # 避免顶栏一直显示错误的 -6%。换好传感器后正常值会自动恢复显示。
     env = t
     if humidity is not None and 0 <= humidity <= 100:
         env = f"{t}  {humidity:.0f}%"
-    d.text((z.x + z.w - 160, z.y + 8), env, fill=BLACK, font=f)
+    d.text((z.x + z.w - 160, z.y + 8), env, fill=BLACK, font=f1)
+    # 第二行: 农历(黑) + 节日(红)
+    lx, ly = z.x + 6, z.y + 42
+    text = (lunar or {}).get("text", "")
+    fest = (lunar or {}).get("festival", "")
+    d.text((lx, ly), text, fill=BLACK, font=f2)
+    if fest:
+        w = d.textlength(text + " · ", font=f2)
+        d.text((lx + w, ly), fest, fill=RED, font=f2)
     d.line((z.x, z.y + z.h - 1, z.x + z.w, z.y + z.h - 1), fill=BLACK, width=1)
 
 
-def draw_claude_status(d: ImageDraw.ImageDraw, z: Zone, s: ClaudeStatus) -> None:
-    big = _font(48)
-    small = _font(22)
+def draw_claude_status(d: ImageDraw.ImageDraw, z: Zone, s: ClaudeStatus, now=None) -> None:
+    cy = _title_bar(d, z, "状态")
+    big = _font(44)
+    small = _font(20)
     color = RED if s.needs_attention() else BLACK
-    # 状态色指示块：不依赖字体字形(默认字体可能缺中文)，保证状态色一定可见
-    d.rectangle((z.x + 12, z.y + 24, z.x + 36, z.y + 48), fill=color)
+    # 状态色块: 不依赖字形, 保证状态色可见
+    d.rectangle((z.x + 12, cy + 6, z.x + 34, cy + 30), fill=color)
     label = STATE_LABEL.get(s.state, s.state)
-    d.text((z.x + 48, z.y + 20), label, fill=color, font=big)
-    proj = f"project: {s.project}" if s.project else "-"
-    d.text((z.x + 12, z.y + 90), proj, fill=BLACK, font=small)
+    d.text((z.x + 44, cy), label, fill=color, font=big)
+    proj = s.project or "-"
+    elapsed = _elapsed_text(getattr(s, "since", None), now)
+    line2 = proj + (f" · {elapsed}" if elapsed else "")
+    d.text((z.x + 12, cy + 58), line2, fill=BLACK, font=small)
 
 
-def draw_usage(d: ImageDraw.ImageDraw, z: Zone, u: Usage) -> None:
-    f = _font(22)
-    d.text((z.x + 8, z.y + 8), "今日用量", fill=BLACK, font=f)
-    d.text((z.x + 8, z.y + 40), f"{u.total_tokens()} tok", fill=BLACK, font=f)
-    d.text((z.x + 8, z.y + 72), f"≈ ${u.cost_usd:.2f}", fill=BLACK, font=f)
+def draw_usage(d: ImageDraw.ImageDraw, z: Zone, u: Usage, budget_usd=None) -> None:
+    cy = _title_bar(d, z, "今日用量")
+    f = _font(20)
+    hero = _font(40)
+    d.text((z.x + 8, cy), f"{u.total_tokens()} tok", fill=BLACK, font=f)
+    # hero 花费: 超预算告警红, 否则黑(靠字号强调)
+    over = budget_usd is not None and u.cost_usd > budget_usd
+    d.text((z.x + 8, cy + 28), f"${u.cost_usd:.0f}", fill=(RED if over else BLACK), font=hero)
+    by = cy + 84
     if u.window_used_ratio is not None:
-        bx, by, bw, bh = z.x + 8, z.y + 110, z.w - 24, 18
+        bx, bw, bh = z.x + 8, z.w - 92, 16
         d.rectangle((bx, by, bx + bw, by + bh), outline=BLACK, width=1)
         fillw = int(bw * max(0.0, min(1.0, u.window_used_ratio)))
         d.rectangle((bx, by, bx + fillw, by + bh), fill=BLACK)
+        pct = int(round(u.window_used_ratio * 100))
+        pcol = RED if u.window_used_ratio > 0.90 else BLACK   # >90% 告警红
+        d.text((bx + bw + 6, by - 3), f"{pct}%", fill=pcol, font=f)
     else:
-        d.text((z.x + 8, z.y + 110), "窗口 n/a", fill=BLACK, font=f)
+        d.text((z.x + 8, by), "窗口 n/a", fill=BLACK, font=f)
+    d.text((z.x + 8, by + 28), f"今日 {u.session_count} 会话", fill=BLACK, font=f)
 
 
 def draw_todos(d: ImageDraw.ImageDraw, z: Zone, items: list[TodoItem]) -> None:
-    f = _font(22)
-    y = z.y + 6
+    cy = _title_bar(d, z, "待办")
+    f = _font(20)
+    y = cy
     for t in items[:4]:
-        box = "[x]" if t.done else "[ ]"
-        d.text((z.x + 8, y), f"{box} {t.text}", fill=BLACK, font=f)
+        box = "☑" if t.done else "☐"
+        line = f"{box} {t.text}"
+        d.text((z.x + 8, y), line, fill=BLACK, font=f)
+        if t.done:   # 完成项删除线弱化
+            w = d.textlength(line, font=f)
+            ly = y + 13
+            d.line((z.x + 8, ly, z.x + 8 + w, ly), fill=BLACK, width=1)
         y += 34
