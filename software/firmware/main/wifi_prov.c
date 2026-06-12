@@ -1,5 +1,5 @@
 #include "wifi_prov.h"
-#include "net_config.h"
+#include "ip_config/net_config.h"
 #include "ble_prov.h"
 #include "esp_wifi.h"
 #include "esp_event.h"

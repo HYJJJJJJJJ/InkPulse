@@ -1,5 +1,5 @@
 #include "frame_client.h"
-#include "net_config.h"
+#include "ip_config/net_config.h"
 #include "epd_uc8179.h"
 #include "pins.h"
 #include "esp_http_client.h"

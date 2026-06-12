@@ -1,5 +1,5 @@
 #include "ble_prov.h"
-#include "net_config.h"
+#include "ip_config/net_config.h"
 #include "esp_log.h"
 #include "esp_event.h"
 #include "nvs.h"
