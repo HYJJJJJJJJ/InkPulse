@@ -133,4 +133,16 @@ def create_app(cfg: Config) -> FastAPI:
         p = os.path.join(cfg.photos_dir, os.path.basename(name))
         return FileResponse(p) if os.path.exists(p) else Response(status_code=404)
 
+    # ---- 刷新令牌: web 请求刷新真机 -> 令牌+1; 设备每 ~10s 轮询, 变化即立即拉帧刷屏 ----
+    _refresh = {"token": 0}
+
+    @app.post("/api/refresh")
+    def api_refresh():
+        _refresh["token"] += 1
+        return {"ok": True, "token": _refresh["token"]}
+
+    @app.get("/api/refresh-token")
+    def api_refresh_token():
+        return {"token": _refresh["token"]}
+
     return app

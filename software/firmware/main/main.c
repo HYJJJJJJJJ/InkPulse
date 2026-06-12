@@ -108,7 +108,8 @@ void app_main(void)
     disp->clear();   // 开机消残影
     chan->init(&caps);
 
-    bool online = true;   // 连接状态, 仅在翻转时刷屏(避免 e-ink 频繁全刷)
+    bool online = true;       // 连接状态, 仅在翻转时刷屏(避免 e-ink 频繁全刷)
+    int  refresh_token = 0;   // hub 刷新令牌基线; 变化=web 请求真机刷新
     while (1) {
         sensor_env_t env; sensor->read(&env);
         channel_result_t r = { .changed = false, .next_refresh_s = 600 };
@@ -134,8 +135,15 @@ void app_main(void)
                  now_online                ? "未变/未刷" : "出错/离线",
                  r.next_refresh_s);
         int next = r.next_refresh_s < 30 ? 30 : r.next_refresh_s;
-        // 等待超时, 或被短按 notify 提前唤醒(立即进入下轮 fetch 刷新)
-        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS((uint32_t)next * 1000));
+        // 分段等待: 每 10s 查 hub 刷新令牌, 令牌变化(web 请求刷新)或 BOOT 短按则提前刷新
+        int waited = 0;
+        while (waited < next) {
+            int step = (next - waited) > 10 ? 10 : (next - waited);
+            if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS((uint32_t)step * 1000))) break;  // BOOT 短按
+            waited += step;
+            int tok = http_hub_poll_token();
+            if (tok >= 0 && tok != refresh_token) { refresh_token = tok; break; }
+        }
     }
 }
 

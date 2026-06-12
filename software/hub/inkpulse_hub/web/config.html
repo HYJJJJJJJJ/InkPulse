@@ -37,9 +37,14 @@
   </div>
 
   <div class="card">
-    <h2>实时预览 <button class="ghost" style="float:right;padding:4px 12px" onclick="refreshPreview()">立即刷新</button></h2>
+    <h2>实时预览
+      <span style="float:right">
+        <button class="ghost" style="padding:4px 12px" onclick="refreshPreview()">刷新预览</button>
+        <button style="padding:4px 12px" onclick="refreshScreen(this)">刷新屏幕</button>
+      </span>
+    </h2>
     <img id="preview" src="/preview.png" alt="preview">
-    <div class="hint">点"立即刷新"看最新数据渲染；真机刷新靠 BOOT 键短按或下次定时拉帧。</div>
+    <div class="hint">"刷新预览"=刷新这张网页图；"刷新屏幕"=请求真机立即刷新(设备约 10s 内上屏)。</div>
   </div>
 
   <div class="card">
@@ -74,6 +79,12 @@ const NAMES={dash:'仪表盘',photo:'相框',usage:'用量',todo:'待办',clock:
 let cur=null;
 
 function refreshPreview(){document.getElementById('preview').src='/preview.png?t='+Date.now();}
+async function refreshScreen(btn){
+  await fetch('/api/refresh',{method:'POST'});
+  const old=btn.textContent;btn.textContent='已请求 ✓';btn.disabled=true;
+  setTimeout(()=>{btn.textContent=old;btn.disabled=false;},3000);
+  refreshPreview();
+}
 
 async function load(){
   const c=await (await fetch('/api/config')).json();

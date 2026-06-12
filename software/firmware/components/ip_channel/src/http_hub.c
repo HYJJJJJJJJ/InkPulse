@@ -160,3 +160,36 @@ static esp_err_t ch_fetch(uint8_t *buf, size_t buf_len,
 static const channel_if_t s_if = { .init = ch_init, .fetch = ch_fetch };
 
 const channel_if_t *http_hub_channel(void) { return &s_if; }
+
+// ---- 刷新令牌轮询(轻量 GET /api/refresh-token) ----
+static char s_tok_buf[48];
+static int  s_tok_len;
+
+static esp_err_t token_evt(esp_http_client_event_t *e)
+{
+    if (e->event_id == HTTP_EVENT_ON_DATA) {
+        int n = e->data_len;
+        if (n > (int)sizeof(s_tok_buf) - 1 - s_tok_len) n = (int)sizeof(s_tok_buf) - 1 - s_tok_len;
+        if (n > 0) { memcpy(s_tok_buf + s_tok_len, e->data, n); s_tok_len += n; }
+    }
+    return ESP_OK;
+}
+
+int http_hub_poll_token(void)
+{
+    if (s_base[0] == 0) return -1;
+    char url[160];
+    snprintf(url, sizeof(url), "%s/api/refresh-token", s_base);
+    s_tok_buf[0] = 0; s_tok_len = 0;
+    esp_http_client_config_t cfg = { .url = url, .event_handler = token_evt, .timeout_ms = 3000 };
+    esp_http_client_handle_t c = esp_http_client_init(&cfg);
+    int tok = -1;
+    if (esp_http_client_perform(c) == ESP_OK &&
+        esp_http_client_get_status_code(c) == 200) {
+        s_tok_buf[s_tok_len] = 0;
+        char *p = strstr(s_tok_buf, "token");        // {"token": N}
+        if (p && (p = strchr(p, ':')) != NULL) tok = atoi(p + 1);
+    }
+    esp_http_client_cleanup(c);
+    return tok;
+}

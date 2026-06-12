@@ -16,3 +16,7 @@ typedef struct {
 } channel_if_t;
 
 const channel_if_t *http_hub_channel(void);
+
+// 轻量查询 hub 刷新令牌(GET /api/refresh-token)。变化表示 web 请求了真机刷新。
+// 返回当前令牌, 或 -1(失败/未连)。
+int http_hub_poll_token(void);

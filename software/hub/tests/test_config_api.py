@@ -38,3 +38,12 @@ def test_api_photos_upload_list_delete(tmp_path):
     assert "a.png" in c.get("/api/photos").json()
     assert c.delete("/api/photos/a.png").status_code == 200
     assert "a.png" not in c.get("/api/photos").json()
+
+
+def test_api_refresh_bumps_token(tmp_path):
+    cfg, c = _client(tmp_path)
+    t0 = c.get("/api/refresh-token").json()["token"]
+    r = c.post("/api/refresh")
+    assert r.status_code == 200
+    t1 = c.get("/api/refresh-token").json()["token"]
+    assert t1 == t0 + 1   # 每次请求刷新, 令牌递增(设备据此判断要不要立即拉帧)
