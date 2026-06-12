@@ -2,7 +2,7 @@
 // 极性约定(bring-up Task5 验证): 发给 0x10(B/W) 字节 1=白 0=黑; 发给 0x13(RED) 字节 1=红 0=不红
 // 清屏=白: 0x10<-0xFF, 0x13<-0x00
 #include "epd_uc8179.h"
-#include "pins.h"
+#include "ip_hal/board_pins.h"
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"

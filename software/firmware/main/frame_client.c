@@ -1,7 +1,7 @@
 #include "frame_client.h"
 #include "ip_config/net_config.h"
 #include "epd_uc8179.h"
-#include "pins.h"
+#include "ip_hal/board_pins.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
 #include <string.h>

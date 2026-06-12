@@ -19,6 +19,7 @@ idf_component_register(
         wifi_provisioning  # BLE 配网
         bt                 # NimBLE
         ip_config          # 编译期网络常量头
+        ip_hal             # 硬件抽象层(SPI/I2C/GPIO)
 )
 
 # 把 idf.py -DINKPULSE_VERIFY=1 的 CMake 变量转成 C 编译宏, 否则 main.c 的
