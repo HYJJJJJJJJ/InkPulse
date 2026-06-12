@@ -1,11 +1,12 @@
 # inkpulse_hub/__main__.py
 import os
-from .config import load_config
+from .config import load_config, load_runtime
 from .server import create_app
 
 
 def build():
     cfg = load_config(os.environ.get("INKPULSE_CONFIG"))
+    load_runtime(cfg, cfg.runtime_store)   # web 配置面板存的运行时设置
     return create_app(cfg)
 
 
