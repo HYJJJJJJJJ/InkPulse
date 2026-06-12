@@ -7,9 +7,11 @@
 #include "ip_net/net.h"
 #include "ip_provisioning/provisioning.h"
 #include "ip_config/net_config.h"
-#include "frame_client.h"
+#include "ip_channel/channel.h"
 
 static const char *TAG = "inkpulse";
+
+static uint8_t s_framebuf[96000];
 
 // 定义 INKPULSE_VERIFY(idf.py build -DINKPULSE_VERIFY=1 或在此 #define)
 // 可跑阶段一 bring-up harness: 温湿度 + 白/黑/红, 不联网。
@@ -48,11 +50,15 @@ void app_main(void)
 void app_main(void)
 {
     ESP_LOGI(TAG, "boot");
-    const display_if_t *disp = uc8179_driver();
-    const sensor_if_t  *sensor = htu21d_sensor();
+    const display_if_t  *disp   = uc8179_driver();
+    const sensor_if_t   *sensor = htu21d_sensor();
+    const channel_if_t  *chan   = http_hub_channel();
     disp->init();
     sensor->init();
     ip_net_init();
+
+    display_caps_t caps;
+    disp->get_caps(&caps);
 
     char ssid[33]={0}, pass[65]={0};
     if (!creds_load(ssid,sizeof ssid,pass,sizeof pass)) {
@@ -72,17 +78,22 @@ void app_main(void)
         disp->clear(); while (1) vTaskDelay(pdMS_TO_TICKS(1000));
     }
     disp->clear();   // 开机消残影
+    chan->init(&caps);
 
     while (1) {
         sensor_env_t env; sensor->read(&env);
-        int next = 600;
-        int r = frame_fetch_and_show(disp,
-                    env.temp_valid ? env.temp_c : -100,
-                    env.humidity_valid ? env.humidity : -100, &next);
+        channel_result_t r = { .changed = false, .next_refresh_s = 600 };
+        esp_err_t fr = chan->fetch(s_framebuf, sizeof s_framebuf, &env, &r);
+        if (fr == ESP_OK && r.changed) {
+            disp->show(s_framebuf, caps.frame_bytes);
+            disp->refresh();
+        }
         ESP_LOGI(TAG, "fetch -> %s, next=%ds",
-                 r==1?"新帧已刷":r==0?"未变(304)":"出错/离线", next);
-        if (next < 30) next = 30;
-        vTaskDelay(pdMS_TO_TICKS((uint32_t)next*1000));
+                 (fr == ESP_OK && r.changed) ? "新帧已刷" :
+                 (fr == ESP_OK)              ? "未变/未刷" : "出错/离线",
+                 r.next_refresh_s);
+        int next = r.next_refresh_s < 30 ? 30 : r.next_refresh_s;
+        vTaskDelay(pdMS_TO_TICKS((uint32_t)next * 1000));
     }
 }
 
