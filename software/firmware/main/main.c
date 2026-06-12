@@ -3,7 +3,7 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "htu21d.h"
-#include "epd_uc8179.h"
+#include "ip_display/display.h"
 #include "wifi_prov.h"
 #include "frame_client.h"
 
@@ -30,16 +30,10 @@ void app_main(void)
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
-    ESP_LOGI(TAG, "[2] 墨水屏: 初始化 + 白/黑/红");
-    epd_hal_init();
-    epd_init();
-    ESP_LOGI(TAG, "    >>> 全白"); epd_show_solid(0xFF, 0x00); vTaskDelay(pdMS_TO_TICKS(4000));
-    ESP_LOGI(TAG, "    >>> 全黑"); epd_show_solid(0x00, 0x00); vTaskDelay(pdMS_TO_TICKS(4000));
-    ESP_LOGI(TAG, "    >>> 全红"); epd_show_solid(0xFF, 0xFF); vTaskDelay(pdMS_TO_TICKS(4000));
-    ESP_LOGI(TAG, "    >>> 上黑下白 / 上不红下红(分屏: 验方向与极性)");
-    epd_show_split(); vTaskDelay(pdMS_TO_TICKS(4000));
-    ESP_LOGI(TAG, "    >>> 棋盘格(验行列寻址)");
-    epd_show_checker(); vTaskDelay(pdMS_TO_TICKS(4000));
+    ESP_LOGI(TAG, "[2] 墨水屏: 初始化 + 白/黑/红/分屏/棋盘");
+    const display_if_t *disp = uc8179_driver();
+    disp->init();
+    disp->selftest();
     ESP_LOGI(TAG, "=== 验证结束 ===");
     while (1) vTaskDelay(pdMS_TO_TICKS(1000));
 }
@@ -49,25 +43,25 @@ void app_main(void)
 void app_main(void)
 {
     ESP_LOGI(TAG, "boot");
-    epd_hal_init();
-    epd_init();
+    const display_if_t *disp = uc8179_driver();
+    disp->init();
     htu21d_init();
 
     if (!wifi_connect_or_provision()) {
         // 进入配网模式(配完会自动重启), 给个干净白屏提示
-        epd_clear();
+        disp->clear();
         while (1) vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
     // 联网成功, 首帧前全白清屏一次: 消除阶段一红测试图案的 BWR 红残影(ghosting)。
     // OTP LUT 单次全刷对红粒子清除不彻底, 开机做一次干净 clear 再写仪表盘。
-    epd_clear();
+    disp->clear();
 
     while (1) {
         float t = 0, h = 0;
         bool have_env = htu21d_read(&t, &h);
         int next = 600;
-        int r = frame_fetch_and_show(have_env ? t : -100, have_env ? h : -100, &next);
+        int r = frame_fetch_and_show(disp, have_env ? t : -100, have_env ? h : -100, &next);
         ESP_LOGI(TAG, "fetch -> %s, next=%ds",
                  r == 1 ? "新帧已刷" : r == 0 ? "未变(304)" : "出错/离线", next);
         if (next < 30) next = 30;          // 下限保护

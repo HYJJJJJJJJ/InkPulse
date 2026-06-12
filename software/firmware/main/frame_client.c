@@ -1,7 +1,6 @@
 #include "frame_client.h"
 #include "ip_config/net_config.h"
-#include "epd_uc8179.h"
-#include "ip_hal/board_pins.h"
+#include "ip_display/display.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
 #include <string.h>
@@ -11,9 +10,11 @@
 
 static const char *TAG = "frame";
 
-// 96KB 双 plane 缓冲放 .bss(内部 RAM 足够)
-static uint8_t s_black[EPD_PLANE_BYTES];
-static uint8_t s_red[EPD_PLANE_BYTES];
+#define FRAME_PLANE_BYTES  48000
+#define FRAME_TOTAL_BYTES  96000
+
+// 连续帧缓冲: 前 48000 字节 = black plane, 后 48000 字节 = red plane
+static uint8_t s_frame[FRAME_TOTAL_BYTES];
 static char s_etag[80] = "";       // 上次成功的 ETag(用于 If-None-Match)
 
 // 本次请求的临时状态
@@ -31,11 +32,9 @@ static esp_err_t on_evt(esp_http_client_event_t *e)
             s_next = atoi(e->header_value);
         break;
     case HTTP_EVENT_ON_DATA:
-        // 顺序填: black[0..48000) 再 red[0..48000)
-        for (int i = 0; i < e->data_len && s_recv < 2 * EPD_PLANE_BYTES; i++, s_recv++) {
-            uint8_t v = ((uint8_t *)e->data)[i];
-            if (s_recv < EPD_PLANE_BYTES) s_black[s_recv] = v;
-            else s_red[s_recv - EPD_PLANE_BYTES] = v;
+        // 顺序填: s_frame[0..48000) = black, s_frame[48000..96000) = red
+        for (int i = 0; i < e->data_len && s_recv < FRAME_TOTAL_BYTES; i++, s_recv++) {
+            s_frame[s_recv] = ((uint8_t *)e->data)[i];
         }
         break;
     default:
@@ -44,7 +43,7 @@ static esp_err_t on_evt(esp_http_client_event_t *e)
     return ESP_OK;
 }
 
-int frame_fetch_and_show(float temp_c, float humidity, int *next_refresh_s)
+int frame_fetch_and_show(const display_if_t *disp, float temp_c, float humidity, int *next_refresh_s)
 {
     char url[256];
     snprintf(url, sizeof(url), "%s?t=%.1f&h=%.1f", HUB_FRAME_URL, temp_c, humidity);
@@ -65,13 +64,14 @@ int frame_fetch_and_show(float temp_c, float humidity, int *next_refresh_s)
         int status = esp_http_client_get_status_code(c);
         if (status == 304) {
             ret = 0;
-        } else if (status == 200 && s_recv == 2 * EPD_PLANE_BYTES) {
+        } else if (status == 200 && s_recv == FRAME_TOTAL_BYTES) {
             strlcpy(s_etag, s_new_etag, sizeof(s_etag));
-            epd_display_planes(s_black, s_red);
+            disp->show(s_frame, FRAME_TOTAL_BYTES);
+            disp->refresh();
             ret = 1;
         } else {
             ESP_LOGW(TAG, "status=%d recv=%u(期望%d)", status,
-                     (unsigned)s_recv, 2 * EPD_PLANE_BYTES);
+                     (unsigned)s_recv, FRAME_TOTAL_BYTES);
         }
     } else {
         ESP_LOGW(TAG, "http perform 失败(离线?), 保留上一帧");
