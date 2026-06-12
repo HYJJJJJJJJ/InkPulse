@@ -8,6 +8,8 @@
 #include "ip_provisioning/provisioning.h"
 #include "ip_config/net_config.h"
 #include "ip_channel/channel.h"
+#include "ip_button/button.h"
+#include "esp_system.h"   // esp_restart
 
 static const char *TAG = "inkpulse";
 
@@ -65,9 +67,16 @@ static void mark_offline(uint8_t *fb, const display_caps_t *c, bool on)
     }
 }
 
+// 按键回调: 短按唤醒主循环立即刷新; 长按清凭据重启进配网。
+static TaskHandle_t s_main_task;
+static void on_btn_short(void) { if (s_main_task) xTaskNotifyGive(s_main_task); }
+static void on_btn_long(void)  { creds_clear(); esp_restart(); }
+
 void app_main(void)
 {
     ESP_LOGI(TAG, "boot");
+    s_main_task = xTaskGetCurrentTaskHandle();
+    button_init(on_btn_short, on_btn_long);
     const display_if_t  *disp   = uc8179_driver();
     const sensor_if_t   *sensor = htu21d_sensor();
     const channel_if_t  *chan   = http_hub_channel();
@@ -125,7 +134,8 @@ void app_main(void)
                  now_online                ? "未变/未刷" : "出错/离线",
                  r.next_refresh_s);
         int next = r.next_refresh_s < 30 ? 30 : r.next_refresh_s;
-        vTaskDelay(pdMS_TO_TICKS((uint32_t)next * 1000));
+        // 等待超时, 或被短按 notify 提前唤醒(立即进入下轮 fetch 刷新)
+        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS((uint32_t)next * 1000));
     }
 }
 

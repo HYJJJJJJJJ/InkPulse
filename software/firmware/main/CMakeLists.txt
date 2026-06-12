@@ -10,6 +10,7 @@ idf_component_register(
         ip_net             # WiFi STA(WPA3-SAE + 循环重连)
         ip_provisioning    # BLE/SoftAP 配网 + NVS 凭据
         ip_channel         # HTTP-Hub 数据源(channel 接口 + HTTP 实现)
+        ip_button          # BOOT 键(GPIO0) 短按刷新 / 长按配网
 )
 
 # 把 idf.py -DINKPULSE_VERIFY=1 的 CMake 变量转成 C 编译宏, 否则 main.c 的

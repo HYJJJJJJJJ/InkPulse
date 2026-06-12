@@ -29,6 +29,19 @@ void creds_save(const char *ssid, const char *pass)
     }
 }
 
+// 清除 WiFi 凭据(NVS ssid/pass), 用于长按重新配网。hub 地址 key 保留。
+void creds_clear(void)
+{
+    nvs_handle_t h;
+    if (nvs_open("inkpulse", NVS_READWRITE, &h) == ESP_OK) {
+        nvs_erase_key(h, "ssid");
+        nvs_erase_key(h, "pass");
+        nvs_commit(h);
+        nvs_close(h);
+        ESP_LOGI(TAG, "凭据已清除, 重启后进配网");
+    }
+}
+
 // 读手动配置的 hub base 地址(NVS key "hub")。返回 ok && 非空。
 bool hub_addr_load(char *out, size_t n)
 {
