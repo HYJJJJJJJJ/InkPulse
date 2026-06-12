@@ -37,9 +37,9 @@
   </div>
 
   <div class="card">
-    <h2>实时预览</h2>
+    <h2>实时预览 <button class="ghost" style="float:right;padding:4px 12px" onclick="refreshPreview()">立即刷新</button></h2>
     <img id="preview" src="/preview.png" alt="preview">
-    <div class="hint">改配置后自动刷新；设备下次拉帧生效。</div>
+    <div class="hint">点"立即刷新"看最新数据渲染；真机刷新靠 BOOT 键短按或下次定时拉帧。</div>
   </div>
 
   <div class="card">
@@ -56,6 +56,15 @@
     <div class="row" style="margin-top:12px">
       <input id="file" type="file" accept="image/*">
       <button class="ghost" onclick="upload()">上传</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>待办</h2>
+    <div id="todos"></div>
+    <div class="row" style="margin-top:12px">
+      <input id="todoText" placeholder="新待办..." onkeydown="if(event.key==='Enter')addTodo()">
+      <button onclick="addTodo()">添加</button>
     </div>
   </div>
 
@@ -80,6 +89,27 @@ async function load(){
   document.getElementById('limit').value=c.usage_window_token_limit??'';
   document.getElementById('refresh').value=c.refresh_periodic_s??'';
   loadPhotos();
+  loadTodos();
+}
+
+function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+async function loadTodos(){
+  const list=await (await fetch('/api/todos')).json();
+  const box=document.getElementById('todos');box.innerHTML='';
+  list.forEach(t=>box.insertAdjacentHTML('beforeend',
+    `<div class="row"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTodo('${t.id}')"><span style="flex:1;${t.done?'text-decoration:line-through;color:#a1a1aa':''}">${esc(t.text)}</span><button class="ghost" onclick="delTodo('${t.id}')">×</button></div>`));
+  if(!list.length)box.innerHTML='<div class="hint">还没有待办</div>';
+}
+async function addTodo(){
+  const i=document.getElementById('todoText');const t=i.value.trim();if(!t)return;
+  await fetch('/api/todos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})});
+  i.value='';loadTodos();setTimeout(refreshPreview,300);
+}
+async function toggleTodo(id){
+  await fetch('/api/todos/'+id+'/toggle',{method:'POST'});loadTodos();setTimeout(refreshPreview,300);
+}
+async function delTodo(id){
+  await fetch('/api/todos/'+id,{method:'DELETE'});loadTodos();setTimeout(refreshPreview,300);
 }
 
 async function post(body){
