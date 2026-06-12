@@ -1,0 +1,6 @@
+# 字体文件体积大, 不入库; 用 download.sh 重新获取
+*.otf
+*.ttf
+*.ttc
+!.gitignore
+!download.sh

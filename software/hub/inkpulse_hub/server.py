@@ -34,6 +34,13 @@ def create_app(cfg: Config) -> FastAPI:
         f = render_frame(cfg, state.build_render_state())
         return Response(content=f.png_bytes, media_type="image/png")
 
+    # ---- 字体验证: 运行时热切换 CJK 字体, 设备下次拉帧即生效 ----
+    @app.get("/debug/font")
+    def debug_font(path: str | None = None):
+        from .render import widgets
+        widgets.set_font(path)
+        return {"ok": True, "font": widgets.current_font()}
+
     @app.post("/ingest/claude-status")
     async def ingest(request: Request):
         data = await request.json()

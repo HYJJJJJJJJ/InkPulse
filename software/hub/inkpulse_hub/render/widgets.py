@@ -24,7 +24,11 @@ class Zone:
     h: int
 
 # 优先 CJK 字体，保证 /preview.png 能显示中文。
+# 选定(2026-06-12 真机验证): 全局思源黑 Medium(项目内置 fonts/), 找不到再回退系统字体。
+import os as _os
+_FONT_DIR = _os.path.join(_os.path.dirname(__file__), "..", "..", "fonts")
 _CJK_FONT_PATHS = [
+    _os.path.join(_FONT_DIR, "SiYuanHei-Medium.otf"),   # ← 选定: 全局思源黑 Medium
     # macOS
     "/System/Library/Fonts/PingFang.ttc",
     "/System/Library/Fonts/STHeiti Light.ttc",
@@ -41,8 +45,32 @@ _CJK_FONT_PATHS = [
 ]
 
 
+# 字体验证用: 运行时热切换字体, 不必重烧固件。
+# 优先级: 显式 override > 环境变量 INKPULSE_FONT > 默认 _CJK_FONT_PATHS 列表。
+_FONT_OVERRIDE: str | None = None
+
+
+def set_font(path: str | None) -> None:
+    """切换全局 CJK 字体文件路径(None=回到默认列表)。供 /debug/font 调用。"""
+    global _FONT_OVERRIDE
+    _FONT_OVERRIDE = path or None
+
+
+def current_font() -> str:
+    import os
+    return _FONT_OVERRIDE or os.environ.get("INKPULSE_FONT") or "(default list)"
+
+
 def _font(size: int) -> ImageFont.ImageFont:
-    for path in _CJK_FONT_PATHS:
+    import os
+    candidates = []
+    if _FONT_OVERRIDE:
+        candidates.append(_FONT_OVERRIDE)
+    env = os.environ.get("INKPULSE_FONT")
+    if env:
+        candidates.append(env)
+    candidates.extend(_CJK_FONT_PATHS)
+    for path in candidates:
         try:
             return ImageFont.truetype(path, size, index=0)
         except OSError:
