@@ -9,8 +9,28 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <string.h>
+#include <ctype.h>
+#include <stdlib.h>
 
 static const char *TAG = "softap_prov";
+
+// 表单 application/x-www-form-urlencoded 解码(in-place): %XX -> 字节, + -> 空格。
+static void urldecode(char *s)
+{
+    char *o = s;
+    for (; *s; s++) {
+        if (*s == '%' && isxdigit((unsigned char)s[1]) && isxdigit((unsigned char)s[2])) {
+            char hex[3] = { s[1], s[2], 0 };
+            *o++ = (char)strtol(hex, NULL, 16);
+            s += 2;
+        } else if (*s == '+') {
+            *o++ = ' ';
+        } else {
+            *o++ = *s;
+        }
+    }
+    *o = 0;
+}
 
 static esp_err_t form_get(httpd_req_t *r)
 {
@@ -19,7 +39,8 @@ static esp_err_t form_get(httpd_req_t *r)
         "<meta name=viewport content='width=device-width,initial-scale=1'>"
         "<h3>InkPulse 配网</h3>"
         "<form method=POST action=/save>"
-        "SSID:<br><input name=ssid><br>密码:<br><input name=pass type=password><br><br>"
+        "SSID:<br><input name=ssid><br>密码:<br><input name=pass type=password><br>"
+        "Hub 地址(可选, 留空自动发现):<br><input name=hub placeholder=http://192.168.1.5:8080><br><br>"
         "<button>保存并重启</button></form>";
     httpd_resp_send(r, html, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
@@ -27,14 +48,16 @@ static esp_err_t form_get(httpd_req_t *r)
 
 static esp_err_t save_post(httpd_req_t *r)
 {
-    char buf[200] = {0};
+    char buf[300] = {0};
     int n = httpd_req_recv(r, buf, sizeof(buf) - 1);
     if (n <= 0) return ESP_FAIL;
-    char ssid[33] = {0}, pass[65] = {0};
+    char ssid[33] = {0}, pass[65] = {0}, hub[129] = {0};
     httpd_query_key_value(buf, "ssid", ssid, sizeof(ssid));
     httpd_query_key_value(buf, "pass", pass, sizeof(pass));
+    httpd_query_key_value(buf, "hub", hub, sizeof(hub));
 
     creds_save(ssid, pass);
+    if (strlen(hub) > 0) { urldecode(hub); hub_addr_save(hub); }   // 留空则不写, 靠 mDNS/默认
 
     httpd_resp_sendstr(r, "saved, rebooting...");
     vTaskDelay(pdMS_TO_TICKS(500));

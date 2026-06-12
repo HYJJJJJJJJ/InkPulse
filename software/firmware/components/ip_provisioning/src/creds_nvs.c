@@ -28,3 +28,25 @@ void creds_save(const char *ssid, const char *pass)
         ESP_LOGI(TAG, "凭据已存 NVS (ssid=%s)", ssid);
     }
 }
+
+// 读手动配置的 hub base 地址(NVS key "hub")。返回 ok && 非空。
+bool hub_addr_load(char *out, size_t n)
+{
+    nvs_handle_t h;
+    if (nvs_open("inkpulse", NVS_READONLY, &h) != ESP_OK) return false;
+    bool ok = nvs_get_str(h, "hub", out, &n) == ESP_OK;
+    nvs_close(h);
+    return ok && strlen(out) > 0;
+}
+
+// 写 hub base 地址到 NVS key "hub" 并 commit。
+void hub_addr_save(const char *url)
+{
+    nvs_handle_t h;
+    if (nvs_open("inkpulse", NVS_READWRITE, &h) == ESP_OK) {
+        nvs_set_str(h, "hub", url);
+        nvs_commit(h);
+        nvs_close(h);
+        ESP_LOGI(TAG, "hub 地址已存 NVS (%s)", url);
+    }
+}

@@ -1,6 +1,9 @@
 #include "ip_channel/channel.h"
 #include "ip_config/net_config.h"
+#include "ip_provisioning/provisioning.h"
 #include "esp_http_client.h"
+#include "esp_netif.h"
+#include "mdns.h"
 #include "esp_log.h"
 #include <string.h>
 #include <strings.h>   // strcasecmp
@@ -45,11 +48,45 @@ static esp_err_t on_evt(esp_http_client_event_t *e)
     return ESP_OK;
 }
 
+// 解析出的 hub base 地址(http://IP:port, 不含 /frame), ch_init 时确定一次
+static char s_base[128] = "";
+
+// 解析优先级: mDNS 自动发现 > NVS 手动配 > 编译默认。结果写入 s_base。
+static void resolve_hub_base(void)
+{
+    // 1) mDNS: 查询 _inkpulse._tcp, 取首个 IPv4 + 端口
+    if (mdns_init() == ESP_OK) {
+        mdns_result_t *res = NULL;
+        if (mdns_query_ptr("_inkpulse", "_tcp", 2000, 4, &res) == ESP_OK && res) {
+            for (mdns_ip_addr_t *a = res->addr; a; a = a->next) {
+                if (a->addr.type == ESP_IPADDR_TYPE_V4) {
+                    snprintf(s_base, sizeof(s_base), "http://" IPSTR ":%u",
+                             IP2STR(&a->addr.u_addr.ip4), res->port);
+                    mdns_query_results_free(res);
+                    ESP_LOGI(TAG, "hub 经 mDNS 发现: %s", s_base);
+                    return;
+                }
+            }
+            mdns_query_results_free(res);
+        }
+        ESP_LOGW(TAG, "mDNS 未发现 hub, 降级");
+    }
+    // 2) NVS 手动地址
+    if (hub_addr_load(s_base, sizeof(s_base))) {
+        ESP_LOGI(TAG, "hub 经 NVS 手动配置: %s", s_base);
+        return;
+    }
+    // 3) 编译默认兜底
+    strlcpy(s_base, HUB_DEFAULT_BASE, sizeof(s_base));
+    ESP_LOGI(TAG, "hub 用编译默认: %s", s_base);
+}
+
 static esp_err_t ch_init(const display_caps_t *caps)
 {
     if (caps) {
         s_frame_bytes = caps->frame_bytes;
     }
+    resolve_hub_base();   // 连网后调: 确定 hub base 地址
     return ESP_OK;
 }
 
@@ -63,7 +100,7 @@ static esp_err_t ch_fetch(uint8_t *buf, size_t buf_len,
     float h = (env && env->humidity_valid) ? env->humidity : -100.0f;
 
     char url[256];
-    snprintf(url, sizeof(url), "%s?t=%.1f&h=%.1f", HUB_FRAME_URL, t, h);
+    snprintf(url, sizeof(url), "%s/frame?t=%.1f&h=%.1f", s_base, t, h);
 
     // 重置本次请求临时状态
     s_recv      = 0;
