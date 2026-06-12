@@ -45,7 +45,7 @@ def render_frame(cfg: Config, state: dict) -> Frame:
             if name == "header_clock_env":
                 env = state.get("env", {})
                 W.draw_header(d, z, state.get("clock", ""), state.get("lunar"),
-                              env.get("temp"), env.get("humidity"))
+                              env.get("temp"), env.get("humidity"), env.get("rssi"))
             elif name == "claude_status":
                 W.draw_claude_status(d, z, state["claude"], state.get("now"))
             elif name == "usage":

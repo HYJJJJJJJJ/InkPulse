@@ -3,6 +3,7 @@
 #include "ip_provisioning/provisioning.h"
 #include "esp_http_client.h"
 #include "esp_netif.h"
+#include "esp_wifi.h"
 #include "mdns.h"
 #include "esp_log.h"
 #include <string.h>
@@ -99,8 +100,14 @@ static esp_err_t ch_fetch(uint8_t *buf, size_t buf_len,
     float t = (env && env->temp_valid)     ? env->temp_c  : -100.0f;
     float h = (env && env->humidity_valid) ? env->humidity : -100.0f;
 
+    // RSSI: 取到(已连接)才带 &rssi=, 取不到不带(hub 端 None -> 不画信号格, 避免 0 被当强信号)
+    int rssi = 0;
+    char rssi_q[24] = "";
+    if (esp_wifi_sta_get_rssi(&rssi) == ESP_OK) {
+        snprintf(rssi_q, sizeof(rssi_q), "&rssi=%d", rssi);
+    }
     char url[256];
-    snprintf(url, sizeof(url), "%s/frame?t=%.1f&h=%.1f", s_base, t, h);
+    snprintf(url, sizeof(url), "%s/frame?t=%.1f&h=%.1f%s", s_base, t, h, rssi_q);
 
     // 重置本次请求临时状态
     s_recv      = 0;

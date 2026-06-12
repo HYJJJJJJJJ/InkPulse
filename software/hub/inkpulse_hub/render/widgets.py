@@ -99,7 +99,35 @@ def _elapsed_text(since, now) -> str:
     return f"已 {sec // 3600} 小时"
 
 
-def draw_header(d: ImageDraw.ImageDraw, z: Zone, clock_text: str, lunar, temp, humidity) -> None:
+def signal_bars(rssi) -> int:
+    """RSSI(dBm) -> WiFi 信号格数 0..3。None/弱 -> 0。"""
+    if rssi is None:
+        return 0
+    if rssi >= -60:
+        return 3
+    if rssi >= -72:
+        return 2
+    if rssi >= -82:
+        return 1
+    return 0
+
+
+def _draw_signal(d: ImageDraw.ImageDraw, z: Zone, rssi) -> None:
+    """右上角 WiFi 信号格(3 格竖条, 填 signal_bars 个; 空格画空心)。rssi=None 不画。"""
+    if rssi is None:
+        return
+    bars = signal_bars(rssi)
+    base_x, base_y = z.x + z.w - 26, z.y + 28
+    for i in range(3):
+        x0 = base_x + i * 7
+        box = (x0, base_y - (6 + i * 5), x0 + 5, base_y)
+        if i < bars:
+            d.rectangle(box, fill=BLACK)
+        else:
+            d.rectangle(box, outline=BLACK)
+
+
+def draw_header(d: ImageDraw.ImageDraw, z: Zone, clock_text: str, lunar, temp, humidity, rssi=None) -> None:
     f1 = _font(22)
     f2 = _font(18)
     # 第一行: 日期(红强调) + 温湿度(黑)
@@ -109,6 +137,7 @@ def draw_header(d: ImageDraw.ImageDraw, z: Zone, clock_text: str, lunar, temp, h
     if humidity is not None and 0 <= humidity <= 100:
         env = f"{t}  {humidity:.0f}%"
     d.text((z.x + z.w - 160, z.y + 8), env, fill=BLACK, font=f1)
+    _draw_signal(d, z, rssi)   # 右上角 WiFi 信号格(在线状态)
     # 第二行: 农历(黑) + 节日(红)
     lx, ly = z.x + 6, z.y + 42
     text = (lunar or {}).get("text", "")

@@ -33,13 +33,13 @@ class HubState:
         self.cfg = cfg
         self.claude = ClaudeStatus()
         self.todos = TodoStore(cfg.todos_store)
-        self.env = {"temp": None, "humidity": None}
+        self.env = {"temp": None, "humidity": None, "rssi": None}
 
     def set_claude_status(self, state: str, project: Optional[str] = None) -> None:
         self.claude = ClaudeStatus(state=state, project=project, since=time.time())
 
-    def set_env(self, temp, humidity) -> None:
-        self.env = {"temp": temp, "humidity": humidity}
+    def set_env(self, temp, humidity, rssi=None) -> None:
+        self.env = {"temp": temp, "humidity": humidity, "rssi": rssi}
 
     def add_todo(self, text: str):
         return self.todos.add(text)

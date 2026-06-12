@@ -17,9 +17,10 @@ def create_app(cfg: Config) -> FastAPI:
         return {"ok": True}
 
     @app.get("/frame")
-    def frame(request: Request, t: float | None = None, h: float | None = None):
-        if t is not None or h is not None:
-            state.set_env(t, h)
+    def frame(request: Request, t: float | None = None, h: float | None = None,
+              rssi: int | None = None):
+        if t is not None or h is not None or rssi is not None:
+            state.set_env(t, h, rssi)
         f = render_frame(cfg, state.build_render_state())
         if request.headers.get("if-none-match") == f.etag:
             return Response(status_code=304)

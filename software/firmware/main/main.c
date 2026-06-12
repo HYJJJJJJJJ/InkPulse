@@ -47,6 +47,24 @@ void app_main(void)
 
 #else  // ---- 联网主循环(默认) ----
 
+// 离线红叉叠加: 在帧 red plane 右上角画/清一个红色 X(WiFi 叉简化, 与 hub 信号格同位)。
+// on=true 画, on=false 清。利用 BWR 红 plane(bit=1 -> 红)。
+static void mark_offline(uint8_t *fb, const display_caps_t *c, bool on)
+{
+    int rb = c->width / 8;                  // row bytes (800/8=100)
+    uint8_t *red = fb + c->frame_bytes / 2; // red plane 在后半 (48000)
+    const int x0 = 766, y0 = 8, sz = 18;
+    for (int i = 0; i <= sz; i++) {
+        for (int w = 0; w < 3; w++) {       // 加粗 3px
+            int yy = y0 + i;
+            int xa = x0 + i + w, xb = x0 + sz - i + w;
+            uint8_t ma = 0x80 >> (xa % 8), mb = 0x80 >> (xb % 8);
+            if (on) { red[yy*rb + xa/8] |= ma;  red[yy*rb + xb/8] |= mb; }
+            else    { red[yy*rb + xa/8] &= ~ma; red[yy*rb + xb/8] &= ~mb; }
+        }
+    }
+}
+
 void app_main(void)
 {
     ESP_LOGI(TAG, "boot");
@@ -81,17 +99,30 @@ void app_main(void)
     disp->clear();   // 开机消残影
     chan->init(&caps);
 
+    bool online = true;   // 连接状态, 仅在翻转时刷屏(避免 e-ink 频繁全刷)
     while (1) {
         sensor_env_t env; sensor->read(&env);
         channel_result_t r = { .changed = false, .next_refresh_s = 600 };
         esp_err_t fr = chan->fetch(s_framebuf, sizeof s_framebuf, &env, &r);
-        if (fr == ESP_OK && r.changed) {
+        bool now_online = (fr == ESP_OK);
+
+        if (now_online && r.changed) {
+            disp->show(s_framebuf, caps.frame_bytes);   // 新帧已覆盖整 buffer(含红叉区)
+            disp->refresh();
+        } else if (!now_online && online) {
+            mark_offline(s_framebuf, &caps, true);       // 在线->离线: 叠红叉刷一次
+            disp->show(s_framebuf, caps.frame_bytes);
+            disp->refresh();
+        } else if (now_online && !online) {
+            mark_offline(s_framebuf, &caps, false);      // 离线->在线且内容未变: 清红叉刷一次
             disp->show(s_framebuf, caps.frame_bytes);
             disp->refresh();
         }
+        online = now_online;
+
         ESP_LOGI(TAG, "fetch -> %s, next=%ds",
-                 (fr == ESP_OK && r.changed) ? "新帧已刷" :
-                 (fr == ESP_OK)              ? "未变/未刷" : "出错/离线",
+                 (now_online && r.changed) ? "新帧已刷" :
+                 now_online                ? "未变/未刷" : "出错/离线",
                  r.next_refresh_s);
         int next = r.next_refresh_s < 30 ? 30 : r.next_refresh_s;
         vTaskDelay(pdMS_TO_TICKS((uint32_t)next * 1000));
