@@ -127,6 +127,64 @@ def _draw_signal(d: ImageDraw.ImageDraw, z: Zone, rssi) -> None:
             d.rectangle(box, outline=BLACK)
 
 
+def _center_text(d, z, txt, font, fill):
+    bb = d.textbbox((0, 0), txt, font=font)
+    tw, th = bb[2] - bb[0], bb[3] - bb[1]
+    d.text((z.x + (z.w - tw) // 2 - bb[0], z.y + (z.h - th) // 2 - bb[1]),
+           txt, fill=fill, font=font)
+
+
+def draw_big_clock(d: ImageDraw.ImageDraw, z: Zone, now) -> None:
+    """巨型 HH:MM 时钟, 居中(clock 布局用)。"""
+    import time
+    lt = time.localtime(now)
+    txt = f"{lt.tm_hour:02d}:{lt.tm_min:02d}"
+    size = max(24, min(z.h - 16, (z.w * 2) // (len(txt) + 1)))
+    _center_text(d, z, txt, _font(size), BLACK)
+
+
+def draw_usage_ring(d: ImageDraw.ImageDraw, z: Zone, usage) -> None:
+    """5h 窗口占用环形进度; ratio>=0.9 标红(usage 布局用)。"""
+    ratio = getattr(usage, "window_used_ratio", None)
+    cx, cy = z.x + z.w // 2, z.y + z.h // 2
+    r = min(z.w, z.h) // 2 - 8
+    if r < 6:
+        return
+    d.ellipse((cx - r, cy - r, cx + r, cy + r), outline=BLACK, width=3)  # 底环
+    if ratio is None:
+        return
+    ratio = max(0.0, min(1.0, float(ratio)))
+    color = RED if ratio >= 0.9 else BLACK
+    end = -90 + int(360 * ratio)
+    d.arc((cx - r, cy - r, cx + r, cy + r), -90, end, fill=color, width=10)  # 加粗进度弧
+    pct = f"{int(ratio * 100)}%"
+    fp = _font(max(16, r // 2))
+    _center_text(d, z, pct, fp, color)
+
+
+def draw_month_calendar(d: ImageDraw.ImageDraw, z: Zone, now) -> None:
+    """当月月历 7x6 网格 + 今日高亮(红框红字)(clock/split 布局用)。"""
+    import time, calendar
+    lt = time.localtime(now)
+    year, mon, today = lt.tm_year, lt.tm_mon, lt.tm_mday
+    weeks = calendar.Calendar(firstweekday=0).monthdayscalendar(year, mon)
+    cw, ch = z.w // 7, z.h // (len(weeks) + 1)
+    heads = ["一", "二", "三", "四", "五", "六", "日"]
+    fh = _font(max(12, ch // 3))
+    for c, hd in enumerate(heads):
+        d.text((z.x + c * cw + cw // 3, z.y + 2), hd, fill=BLACK, font=fh)
+    f = _font(max(14, ch // 2))
+    for ri, week in enumerate(weeks):
+        for c, day in enumerate(week):
+            if day == 0:
+                continue
+            x, y = z.x + c * cw, z.y + (ri + 1) * ch
+            if day == today:
+                d.rectangle((x + 1, y + 1, x + cw - 2, y + ch - 2), outline=RED, width=2)
+            d.text((x + cw // 3, y + ch // 6), str(day),
+                   fill=(RED if day == today else BLACK), font=f)
+
+
 def draw_header(d: ImageDraw.ImageDraw, z: Zone, clock_text: str, lunar, temp, humidity, rssi=None) -> None:
     f1 = _font(22)
     f2 = _font(18)

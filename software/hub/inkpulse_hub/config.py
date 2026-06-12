@@ -15,6 +15,7 @@ class Config:
     photos_dir: str = os.path.expanduser("~/inkpulse/photos")
     todos_store: str = os.path.expanduser("~/inkpulse/todos.json")
     layout: list[str] = field(default_factory=lambda: list(DEFAULT_LAYOUT))
+    layout_name: str = "dash"   # 当前布局: dash/photo/usage/todo/clock/split
     # 5h 滚动窗口的 token 估算上限(用于 usage 进度条占用比例);按你的订阅档位调整
     usage_window_token_limit: Optional[int] = 2_000_000
     # 今日花费预算(USD);设了且超过时仪表盘花费数字标红。默认 None=不启用(数字恒黑)
@@ -36,6 +37,7 @@ def load_config(path: Optional[str]) -> Config:
     cfg.todos_store = os.path.expanduser(sources.get("todos_store", cfg.todos_store))
     layout = data.get("layout", {})
     cfg.layout = layout.get("widgets", cfg.layout)
+    cfg.layout_name = layout.get("name", cfg.layout_name)
     usage = data.get("usage", {})
     cfg.usage_window_token_limit = usage.get("window_token_limit", cfg.usage_window_token_limit)
     cfg.usage_budget_usd = usage.get("budget_usd", cfg.usage_budget_usd)
