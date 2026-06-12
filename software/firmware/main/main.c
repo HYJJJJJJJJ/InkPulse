@@ -4,7 +4,9 @@
 #include "esp_log.h"
 #include "ip_sensor/sensor.h"
 #include "ip_display/display.h"
-#include "wifi_prov.h"
+#include "ip_net/net.h"
+#include "ip_provisioning/provisioning.h"
+#include "ip_config/net_config.h"
 #include "frame_client.h"
 
 static const char *TAG = "inkpulse";
@@ -47,31 +49,40 @@ void app_main(void)
 {
     ESP_LOGI(TAG, "boot");
     const display_if_t *disp = uc8179_driver();
+    const sensor_if_t  *sensor = htu21d_sensor();
     disp->init();
-    const sensor_if_t *sensor = htu21d_sensor();
     sensor->init();
+    ip_net_init();
 
-    if (!wifi_connect_or_provision()) {
-        // 进入配网模式(配完会自动重启), 给个干净白屏提示
-        disp->clear();
-        while (1) vTaskDelay(pdMS_TO_TICKS(1000));
+    char ssid[33]={0}, pass[65]={0};
+    if (!creds_load(ssid,sizeof ssid,pass,sizeof pass)) {
+        ip_net_prepare_sta();
+        if (!ble_provisioning()->run(PROV_BLE_TIMEOUT_S)) {
+            // BLE 超时/失败 → SoftAP 起网页, 等用户配网后内部 esp_restart
+            softap_provisioning()->run(0);
+            disp->clear();
+            while (1) vTaskDelay(pdMS_TO_TICKS(1000));   // 等重启
+        }
+        // BLE 配网成功(凭据已存 NVS), 重读
+        creds_load(ssid,sizeof ssid,pass,sizeof pass);
     }
-
-    // 联网成功, 首帧前全白清屏一次: 消除阶段一红测试图案的 BWR 红残影(ghosting)。
-    // OTP LUT 单次全刷对红粒子清除不彻底, 开机做一次干净 clear 再写仪表盘。
-    disp->clear();
+    // 统一用 NVS 凭据连接(BLE 路径: 不 esp_restart, 故不会触发 App "Device disconnected";
+    //   BLE 期间 mgr 已 auto-stop, 这里 STA 重连一次即可)
+    if (ip_net_sta_connect(ssid,pass) != ESP_OK) {
+        disp->clear(); while (1) vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+    disp->clear();   // 开机消残影
 
     while (1) {
-        sensor_env_t env = {0};
-        sensor->read(&env);
-        float t = env.temp_valid    ? env.temp_c   : -100;
-        float h = env.humidity_valid ? env.humidity : -100;
+        sensor_env_t env; sensor->read(&env);
         int next = 600;
-        int r = frame_fetch_and_show(disp, t, h, &next);
+        int r = frame_fetch_and_show(disp,
+                    env.temp_valid ? env.temp_c : -100,
+                    env.humidity_valid ? env.humidity : -100, &next);
         ESP_LOGI(TAG, "fetch -> %s, next=%ds",
-                 r == 1 ? "新帧已刷" : r == 0 ? "未变(304)" : "出错/离线", next);
-        if (next < 30) next = 30;          // 下限保护
-        vTaskDelay(pdMS_TO_TICKS((uint32_t)next * 1000));
+                 r==1?"新帧已刷":r==0?"未变(304)":"出错/离线", next);
+        if (next < 30) next = 30;
+        vTaskDelay(pdMS_TO_TICKS((uint32_t)next*1000));
     }
 }
 

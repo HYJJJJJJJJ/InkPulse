@@ -1,8 +1,7 @@
-#include "ble_prov.h"
+#include "ip_provisioning/provisioning.h"
 #include "ip_config/net_config.h"
 #include "esp_log.h"
 #include "esp_event.h"
-#include "nvs.h"
 #include "wifi_provisioning/manager.h"
 #include "wifi_provisioning/scheme_ble.h"
 #include "freertos/FreeRTOS.h"
@@ -12,18 +11,6 @@
 
 static const char *TAG = "ble_prov";
 static volatile bool s_got_creds;   // CRED_RECV 收到有效凭据即置位
-
-static void save_creds(const char *ssid, const char *pass)
-{
-    nvs_handle_t h;
-    if (nvs_open("inkpulse", NVS_READWRITE, &h) == ESP_OK) {
-        nvs_set_str(h, "ssid", ssid);
-        nvs_set_str(h, "pass", pass);
-        nvs_commit(h);
-        nvs_close(h);
-        ESP_LOGI(TAG, "凭据已存 NVS (ssid=%s)", ssid);
-    }
-}
 
 static void prov_event_handler(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
@@ -35,7 +22,7 @@ static void prov_event_handler(void *arg, esp_event_base_t base, int32_t id, voi
     case WIFI_PROV_CRED_RECV: {
         wifi_sta_config_t *c = (wifi_sta_config_t *)data;
         ESP_LOGI(TAG, "收到凭据 SSID=%s", (const char *)c->ssid);
-        save_creds((const char *)c->ssid, (const char *)c->password);
+        creds_save((const char *)c->ssid, (const char *)c->password);
         s_got_creds = true;
         break;
     }
@@ -59,7 +46,7 @@ static void on_timeout(TimerHandle_t t)
     wifi_prov_mgr_stop_provisioning();   // 使 wifi_prov_mgr_wait() 返回
 }
 
-bool ble_prov_run(int timeout_s)
+static bool ble_prov_run(int timeout_s)
 {
     s_got_creds = false;
     esp_event_handler_register(WIFI_PROV_EVENT, ESP_EVENT_ANY_ID, prov_event_handler, NULL);
@@ -108,3 +95,7 @@ bool ble_prov_run(int timeout_s)
     ESP_LOGW(TAG, "未配网成功, 回退 SoftAP");
     return false;
 }
+
+static bool ble_run(int t){ return ble_prov_run(t); }
+static const provisioning_if_t s_if = { .run = ble_run };
+const provisioning_if_t *ble_provisioning(void){ return &s_if; }
