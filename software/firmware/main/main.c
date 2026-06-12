@@ -2,7 +2,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
-#include "htu21d.h"
+#include "ip_sensor/sensor.h"
 #include "ip_display/display.h"
 #include "wifi_prov.h"
 #include "frame_client.h"
@@ -20,11 +20,14 @@ void app_main(void)
     ESP_LOGI(TAG, "==================================================");
 
     ESP_LOGI(TAG, "[1] HTU21D 温湿度:");
-    htu21d_init();
+    const sensor_if_t *sensor = htu21d_sensor();
+    sensor->init();
     for (int i = 0; i < 3; i++) {
-        float t = 0, h = 0;
-        if (htu21d_read(&t, &h))
-            ESP_LOGI(TAG, "    温度=%.2f C   湿度=%.2f %%", t, h);
+        sensor_env_t env = {0};
+        sensor->read(&env);
+        if (env.temp_valid || env.humidity_valid)
+            ESP_LOGI(TAG, "    温度=%.2f C (valid=%d)   湿度=%.2f %% (valid=%d)",
+                     env.temp_c, env.temp_valid, env.humidity, env.humidity_valid);
         else
             ESP_LOGW(TAG, "    读取失败");
         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -45,7 +48,8 @@ void app_main(void)
     ESP_LOGI(TAG, "boot");
     const display_if_t *disp = uc8179_driver();
     disp->init();
-    htu21d_init();
+    const sensor_if_t *sensor = htu21d_sensor();
+    sensor->init();
 
     if (!wifi_connect_or_provision()) {
         // 进入配网模式(配完会自动重启), 给个干净白屏提示
@@ -58,10 +62,12 @@ void app_main(void)
     disp->clear();
 
     while (1) {
-        float t = 0, h = 0;
-        bool have_env = htu21d_read(&t, &h);
+        sensor_env_t env = {0};
+        sensor->read(&env);
+        float t = env.temp_valid    ? env.temp_c   : -100;
+        float h = env.humidity_valid ? env.humidity : -100;
         int next = 600;
-        int r = frame_fetch_and_show(disp, have_env ? t : -100, have_env ? h : -100, &next);
+        int r = frame_fetch_and_show(disp, t, h, &next);
         ESP_LOGI(TAG, "fetch -> %s, next=%ds",
                  r == 1 ? "新帧已刷" : r == 0 ? "未变(304)" : "出错/离线", next);
         if (next < 30) next = 30;          // 下限保护
