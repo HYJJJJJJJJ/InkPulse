@@ -21,3 +21,14 @@ def test_yaml_override(tmp_path):
     assert cfg.refresh_min_interval_s == 30
     assert cfg.photos_dir == "/tmp/pics"
     assert cfg.layout == ["claude_status"]
+
+
+def test_layouts_store_default_and_override(tmp_path):
+    from inkpulse_hub.config import Config, load_config
+    # 默认值在家目录下
+    assert Config().layouts_store.endswith("inkpulse/layouts.json")
+    # 可被 config.yaml 的 sources.layouts_store 覆盖
+    p = tmp_path / "c.yaml"
+    p.write_text("sources:\n  layouts_store: /tmp/my-layouts.json\n", encoding="utf-8")
+    cfg = load_config(str(p))
+    assert cfg.layouts_store == "/tmp/my-layouts.json"
