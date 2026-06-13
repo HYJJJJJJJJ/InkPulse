@@ -5,7 +5,7 @@ import time
 from typing import Optional
 from ..models import Photo
 
-_EXTS = ("*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif")
+_EXTS = ("*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp")
 
 
 def pick_photo(

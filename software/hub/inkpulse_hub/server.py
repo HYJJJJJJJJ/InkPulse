@@ -105,7 +105,7 @@ def create_app(cfg: Config) -> FastAPI:
     # ---- 照片管理(photo 布局用) ----
     def _list_photos():
         os.makedirs(cfg.photos_dir, exist_ok=True)
-        exts = (".png", ".jpg", ".jpeg", ".bmp", ".gif")
+        exts = (".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp")
         return sorted(f for f in os.listdir(cfg.photos_dir) if f.lower().endswith(exts))
 
     @app.get("/api/photos")
