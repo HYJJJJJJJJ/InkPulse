@@ -263,3 +263,25 @@ def draw_todos(d: ImageDraw.ImageDraw, z: Zone, items: list[TodoItem]) -> None:
             ly = y + 13
             d.line((z.x + 8, ly, z.x + 8 + w, ly), fill=BLACK, width=1)
         y += 34
+
+
+def draw_countdown(d: ImageDraw.ImageDraw, z: Zone, now, date_str, label="") -> None:
+    """倒计时/纪念日: 顶部标题栏(label) + 居中 D-N。0..3 天内标红。"""
+    import datetime, time
+    cy = _title_bar(d, z, label or "倒计时")
+    body = Zone(z.x, cy, z.w, z.y + z.h - cy)
+    try:
+        target = datetime.date.fromisoformat((date_str or "").strip())
+        today = datetime.date.fromtimestamp(now if now else time.time())
+        days = (target - today).days
+    except (ValueError, TypeError):
+        _center_text(d, body, "日期?", _font(24), BLACK)
+        return
+    if days > 0:
+        big = f"D-{days}"
+    elif days == 0:
+        big = "就在今天"
+    else:
+        big = f"已过{-days}天"
+    color = RED if 0 <= days <= 3 else BLACK
+    _center_text(d, body, big, _font(min(48, max(20, body.h - 8))), color)

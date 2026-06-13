@@ -56,6 +56,10 @@ def _photo(d, img, z, state, cfg, p):
     img.paste(im, (z.x, z.y))
 
 
+def _countdown(d, img, z, state, cfg, p):
+    W.draw_countdown(d, z, state.get("now"), p.get("date"), p.get("label", ""))
+
+
 REGISTRY: dict[str, WidgetSpec] = {
     "header":        WidgetSpec("header", "头部", _header, {"cols": 8, "rows": 1}),
     "claude_status": WidgetSpec("claude_status", "Claude状态", _claude, {"cols": 4, "rows": 3}),
@@ -65,4 +69,7 @@ REGISTRY: dict[str, WidgetSpec] = {
     "big_clock":     WidgetSpec("big_clock", "大时钟", _big_clock, {"cols": 8, "rows": 4}),
     "calendar":      WidgetSpec("calendar", "月历", _calendar, {"cols": 4, "rows": 3}),
     "photo":         WidgetSpec("photo", "整屏照片", _photo, {"cols": 8, "rows": 6}),
+    "countdown":     WidgetSpec("countdown", "倒计时", _countdown, {"cols": 3, "rows": 2},
+                                [{"key": "date", "label": "目标日期", "type": "date", "default": ""},
+                                 {"key": "label", "label": "标签", "type": "text", "default": ""}]),
 }
