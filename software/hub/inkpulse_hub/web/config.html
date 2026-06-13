@@ -51,7 +51,7 @@
       <button onclick="edPlace()">放入</button>
     </div>
     <div id="edParams"></div>
-    <div class="hint">点格子起点、再点终点框出矩形 → 选 widget(+填参数)→"放入"。点已放置的 widget 可删除。改完点"保存布局"。内置布局可直接改(会另存为同名覆盖)。</div>
+    <div class="hint">点格子起点、再点终点框出矩形 → 选 widget(+填参数)→"放入"。点已放置的 widget 可删除。改完点"保存布局"。内置布局只读,改动会提示另存为新布局。</div>
     <button onclick="edSave()" style="margin-top:8px">保存布局</button>
   </div>
 
@@ -178,6 +178,7 @@ async function del(n){
 // ===== 布局编辑器 =====
 const GW = 8, GH = 6;        // 网格列/行
 let edCat = [];              // widget 目录
+let edBuiltins = new Set(); // 内置布局名集合
 let edPlacements = [];       // 当前编辑的 placements
 let edName = null;           // 当前编辑布局名
 let edSel = null;            // 选区 {c0,r0,c1,r1}
@@ -186,6 +187,7 @@ let edAnchor = null;         // 框选起点
 async function edLoad() {
   const data = await (await fetch('/api/layouts')).json();
   edCat = data.widgets;
+  edBuiltins = new Set(Object.entries(data.layouts).filter(([,v]) => v.builtin).map(([k]) => k));
   const sel = document.getElementById('edLayout');
   sel.innerHTML = Object.keys(data.layouts).map(n => `<option>${esc(n)}</option>`).join('');
   const ws = document.getElementById('edWidget');
@@ -260,13 +262,20 @@ function edPlace() {
 }
 
 async function edSave() {
-  const r = await fetch('/api/layouts/' + encodeURIComponent(edName), {
+  let name = edName;
+  if (edBuiltins.has(name)) {
+    name = prompt('内置布局只读,另存为新布局名:', name + '-我的');
+    if (!name) return;
+    edName = name;
+  }
+  const r = await fetch('/api/layouts/' + encodeURIComponent(name), {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ placements: edPlacements })
   });
   if (!r.ok) { alert('保存失败: ' + (await r.json()).error); return; }
   alert('已保存。切到该布局并"刷新屏幕"即可上屏。');
-  load();                        // 刷新顶部布局列表
+  load();
+  edLoad();
   setTimeout(refreshPreview, 300);
 }
 

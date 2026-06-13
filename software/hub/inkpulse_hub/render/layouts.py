@@ -97,6 +97,8 @@ def get_layout(path: str, name: str) -> dict:
 
 
 def save_layout(path: str, name: str, placements: list) -> None:
+    if name in BUILTIN_LAYOUTS:
+        raise ValueError("内置布局只读, 请另存为新名")
     raw = _load_raw(path)
     raw["layouts"][name] = {"placements": placements}
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)

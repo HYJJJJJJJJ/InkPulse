@@ -65,3 +65,10 @@ def test_clamp_out_of_grid_placement(tmp_path):
                               "colspan": 9, "rowspan": 1, "params": {}}])
     z = L.get_layout(p, "越界")["placements"][0]
     assert z["col"] + z["colspan"] <= 8       # 被 clamp 进网格
+
+
+def test_save_builtin_rejected(tmp_path):
+    p = str(tmp_path / "layouts.json")
+    with pytest.raises(ValueError):
+        L.save_layout(p, "dash", [{"widget": "todos", "col": 0, "row": 0,
+                                   "colspan": 8, "rowspan": 6, "params": {}}])

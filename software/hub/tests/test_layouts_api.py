@@ -51,3 +51,10 @@ def test_delete_user_ok_builtin_rejected(tmp_path):
         {"widget": "todos", "col": 0, "row": 0, "colspan": 8, "rowspan": 6}]})
     assert c.delete("/api/layouts/我的").status_code == 200
     assert c.delete("/api/layouts/dash").status_code == 400   # 内置不可删
+
+
+def test_put_rejects_overwriting_builtin(tmp_path):
+    cfg, c = _client(tmp_path)
+    r = c.put("/api/layouts/dash", json={"placements": [
+        {"widget": "todos", "col": 0, "row": 0, "colspan": 8, "rowspan": 6}]})
+    assert r.status_code == 400

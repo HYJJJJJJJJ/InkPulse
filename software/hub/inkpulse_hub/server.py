@@ -130,7 +130,10 @@ def create_app(cfg: Config) -> FastAPI:
             if not (0 <= col and 0 <= row and cs >= 1 and rs >= 1
                     and col + cs <= grid["cols"] and row + rs <= grid["rows"]):
                 return JSONResponse({"error": "out of grid"}, status_code=400)
-        L.save_layout(cfg.layouts_store, name, placements)
+        try:
+            L.save_layout(cfg.layouts_store, name, placements)
+        except ValueError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
         return {"ok": True}
 
     @app.delete("/api/layouts/{name}")

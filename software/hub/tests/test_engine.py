@@ -40,3 +40,21 @@ def test_missing_data_falls_back_not_crash():
     state["env"] = {"temp": None, "humidity": None}
     f = render_frame(_cfg(), state)  # 不应抛异常
     assert len(f.body) == 96000
+
+
+def test_widget_exception_isolated(monkeypatch, tmp_path):
+    from inkpulse_hub.render import engine, registry, layouts as L
+    from inkpulse_hub.render.registry import WidgetSpec
+
+    def boom(d, img, z, state, cfg, p):
+        raise RuntimeError("boom")
+
+    monkeypatch.setitem(registry.REGISTRY, "boom", WidgetSpec("boom", "炸", boom, {"cols": 1, "rows": 1}))
+    lp = str(tmp_path / "layouts.json")
+    L.save_layout(lp, "炸测", [{"widget": "boom", "col": 0, "row": 0,
+                              "colspan": 8, "rowspan": 6, "params": {}}])
+    cfg = _cfg()
+    cfg.layouts_store = lp
+    cfg.layout_name = "炸测"
+    f = engine.render_frame(cfg, _state())
+    assert len(f.body) == 96000        # 整帧仍出图, 不崩
