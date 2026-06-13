@@ -255,7 +255,7 @@ def draw_todos(d: ImageDraw.ImageDraw, z: Zone, items: list[TodoItem]) -> None:
     f = _font(20)
     y = cy
     for t in items[:4]:
-        box = "☑" if t.done else "☐"
+        box = "✓" if t.done else "□"   # 思源黑无 ☑/☐ 字形, 用确有的 ✓/□
         line = f"{box} {t.text}"
         d.text((z.x + 8, y), line, fill=BLACK, font=f)
         if t.done:   # 完成项删除线弱化
