@@ -23,6 +23,8 @@ class Config:
     usage_window_token_limit: Optional[int] = 2_000_000
     # 今日花费预算(USD);设了且超过时仪表盘花费数字标红。默认 None=不启用(数字恒黑)
     usage_budget_usd: Optional[float] = None
+    # 钉住显示的照片文件名(空=按时间自动轮换);photo 布局用
+    photo_pinned: str = ""
 
 
 def load_config(path: Optional[str]) -> Config:
@@ -52,6 +54,7 @@ def load_config(path: Optional[str]) -> Config:
 # 运行时可调字段(web 配置面板改的项), 存 runtime.json, 与部署级 config.yaml 分离。
 RUNTIME_FIELDS = [
     "layout_name", "usage_budget_usd", "usage_window_token_limit", "refresh_periodic_s",
+    "photo_pinned",
 ]
 
 

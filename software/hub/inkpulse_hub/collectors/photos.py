@@ -12,10 +12,17 @@ def pick_photo(
     photos_dir: str,
     now: Optional[float] = None,
     rotate_s: int = 1800,
+    pinned: str = "",
 ) -> Optional[Photo]:
-    """从照片目录选一张; 按 rotate_s(默认 30min)随时间轮换, 无需持久 tick。"""
+    """从照片目录选一张。
+    pinned 非空且对应文件存在 -> 永远返回该张(手动钉住);
+    否则按 rotate_s(默认 30min)随时间轮换, 无需持久 tick。"""
     if not os.path.isdir(photos_dir):
         return None
+    if pinned:
+        p = os.path.join(photos_dir, os.path.basename(pinned))
+        if os.path.isfile(p):
+            return Photo(path=p)
     files: list[str] = []
     for pat in _EXTS:
         files += glob.glob(os.path.join(photos_dir, pat))

@@ -96,6 +96,7 @@
 <script>
 const NAMES={dash:'仪表盘',photo:'相框',usage:'用量',todo:'待办',clock:'摆钟',split:'双栏'};
 let cur=null;
+let curPinned='';   // 当前钉住的照片文件名(空=自动轮换)
 
 function refreshPreview(){document.getElementById('preview').src='/preview.png?t='+Date.now();}
 async function refreshScreen(btn){
@@ -118,6 +119,7 @@ async function load(){
   document.getElementById('budget').value=c.usage_budget_usd??'';
   document.getElementById('limit').value=c.usage_window_token_limit??'';
   document.getElementById('refresh').value=c.refresh_periodic_s??'';
+  curPinned=c.photo_pinned||'';
   loadPhotos();
   loadTodos();
 }
@@ -162,10 +164,23 @@ async function saveParams(){
 async function loadPhotos(){
   const list=await (await fetch('/api/photos')).json();
   const box=document.getElementById('photos');box.innerHTML='';
-  list.forEach(n=>box.insertAdjacentHTML('beforeend',
-    `<div class="photo"><img src="/photos/${encodeURIComponent(n)}" onerror="this.style.background='#eee'"><button onclick="del('${n}')">×</button></div>`));
-  if(!list.length)box.innerHTML='<div class="hint">还没有照片</div>';
+  if(!list.length){box.innerHTML='<div class="hint">还没有照片</div>';return;}
+  list.forEach(n=>{
+    const on=n===curPinned;
+    box.insertAdjacentHTML('beforeend',
+      `<div class="photo" style="${on?'outline:3px solid #dc2626;border-radius:6px':''}">`
+      +`<img src="/photos/${encodeURIComponent(n)}" onerror="this.style.background='#eee'">`
+      +`<button onclick="del('${n}')">×</button>`
+      +`<button class="ghost" style="position:static;width:100%;margin-top:2px;padding:3px;font-size:12px" onclick="pinPhoto('${n}')">${on?'✓ 显示中':'显示此张'}</button>`
+      +`</div>`);
+  });
+  const tip=curPinned
+    ? `<div class="hint" style="width:100%">已钉住「${esc(curPinned)}」 <button class="ghost" style="padding:2px 8px;font-size:12px" onclick="unpinPhoto()">恢复自动轮换</button></div>`
+    : `<div class="hint" style="width:100%">自动轮换中(每 30 分钟切换);点某张「显示此张」可固定</div>`;
+  box.insertAdjacentHTML('beforeend',tip);
 }
+async function pinPhoto(n){ if(await post({photo_pinned:n})){curPinned=n;loadPhotos();} }
+async function unpinPhoto(){ if(await post({photo_pinned:''})){curPinned='';loadPhotos();} }
 async function upload(){
   const f=document.getElementById('file').files[0];if(!f)return;
   const fd=new FormData();fd.append('file',f);
