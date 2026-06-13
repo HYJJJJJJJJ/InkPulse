@@ -19,6 +19,61 @@ INKPULSE_CONFIG=~/inkpulse-config.yaml python -m inkpulse_hub
 - 待办网页：`http://<本机IP>:8080/todos`（手机连同一局域网也能加）
 - 设备取帧：`GET /frame`
 
+## 一键启动（多平台）
+
+仓库提供幂等启动脚本：自动找 Python(≥3.11) → 没 venv 就建 → 没装依赖就 `pip install -e .` → 选配置 → 起服务。venv/依赖已在则秒起。
+
+| 平台 | 脚本 | 用法（在 `software/hub`） |
+|---|---|---|
+| Linux / macOS / WSL | `run.sh` | `./run.sh` |
+| Windows | `run.ps1` | `.\run.ps1`（被拦就 `powershell -ExecutionPolicy Bypass -File .\run.ps1`） |
+
+环境变量 `INKPULSE_PORT` / `INKPULSE_CONFIG` 均生效；后者不设时自动用 `~/inkpulse-config.yaml`（存在才用）。
+
+## 开机自起（systemd user 服务，Linux/WSL）
+
+让 Hub 随系统启动、崩溃自动重启，无需手动开终端。
+
+```bash
+mkdir -p ~/.config/systemd/user
+cat > ~/.config/systemd/user/inkpulse-hub.service <<'EOF'
+[Unit]
+Description=InkPulse Hub (e-ink 渲染服务)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/workspace/InkPulse/software/hub
+ExecStart=%h/workspace/InkPulse/software/hub/run.sh
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Restart=always
+RestartSec=5
+# 可选覆盖：
+# Environment=INKPULSE_PORT=8080
+# Environment=INKPULSE_CONFIG=%h/inkpulse-config.yaml
+
+[Install]
+WantedBy=default.target
+EOF
+
+loginctl enable-linger "$USER"          # 不登录终端也常驻（WSL 一启动就拉起）
+systemctl --user daemon-reload
+systemctl --user enable --now inkpulse-hub.service
+```
+
+> `WorkingDirectory`/`ExecStart` 按你的仓库实际路径改（上面用 `%h` 代表家目录）。
+
+运维：
+
+```bash
+systemctl --user status inkpulse-hub        # 状态
+systemctl --user restart inkpulse-hub       # 改代码/布局后重启
+journalctl --user -u inkpulse-hub -f        # 实时日志
+```
+
+> **WSL 注意**：需 `/etc/wsl.conf` 开 `[boot] systemd=true`；且 WSL 在你首次打开任意终端时才启动（`wsl --shutdown` 后服务也随之停，再次打开终端会自动拉起）。
+
 ## 模块结构
 
 ```
