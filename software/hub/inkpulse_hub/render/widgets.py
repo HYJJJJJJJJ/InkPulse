@@ -232,7 +232,7 @@ def draw_usage(d: ImageDraw.ImageDraw, z: Zone, u: Usage, budget_usd=None) -> No
     cy = _title_bar(d, z, "今日用量")
     f = _font(20)
     hero = _font(40)
-    d.text((z.x + 8, cy), f"{u.total_tokens()} tok", fill=BLACK, font=f)
+    d.text((z.x + 8, cy), f"{u.total_tokens()} tokens", fill=BLACK, font=f)
     # hero 花费: 超预算告警红, 否则黑(靠字号强调)
     over = budget_usd is not None and u.cost_usd > budget_usd
     d.text((z.x + 8, cy + 28), f"${u.cost_usd:.0f}", fill=(RED if over else BLACK), font=hero)
