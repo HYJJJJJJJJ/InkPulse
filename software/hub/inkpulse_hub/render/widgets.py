@@ -316,6 +316,37 @@ def draw_usage_trend(d: ImageDraw.ImageDraw, z: Zone, daily,
         d.text((bx + (bw - tw) / 2, body.y + chart_h + 2), lbl, fill=BLACK, font=f)
 
 
+def draw_project_dist(d: ImageDraw.ImageDraw, z: Zone, projects,
+                      top_n: int = 5, metric: str = "tokens") -> None:
+    """今日各项目占比横向条。projects: [{project, tokens, cost}]。"""
+    top_n = max(1, int(top_n))
+    key = metric if metric in ("tokens", "cost") else "tokens"
+    cy = _title_bar(d, z, "项目分布 · 今日")
+    body = Zone(z.x, cy, z.w, z.y + z.h - cy)
+    items = sorted(projects or [], key=lambda x: x.get(key, 0), reverse=True)
+    total = sum(max(0, x.get(key, 0)) for x in items)
+    if not items or total <= 0:
+        _center_text(d, body, "无数据", _font(20), BLACK)
+        return
+    rows = [(x["project"], max(0, x.get(key, 0))) for x in items[:top_n]]
+    rest = items[top_n:]
+    if rest:
+        rows.append(("其他", sum(max(0, x.get(key, 0)) for x in rest)))
+    f = _font(16)
+    row_h = max(18, min(28, body.h // len(rows)))
+    name_w, pct_w = 84, 48
+    bar_x = body.x + name_w
+    bar_max = max(4, body.w - name_w - pct_w)
+    for i, (name, v) in enumerate(rows):
+        ry = body.y + i * row_h
+        nm = name if len(name) <= 6 else name[:5] + "…"
+        d.text((body.x + 4, ry), nm, fill=BLACK, font=f)
+        frac = v / total
+        bw = int(bar_max * frac)
+        d.rectangle((bar_x, ry + 3, bar_x + bw, ry + row_h - 6), fill=BLACK)
+        d.text((bar_x + bw + 4, ry), f"{int(round(frac * 100))}%", fill=BLACK, font=f)
+
+
 def draw_qrcode(img: Image.Image, z: Zone, content: str) -> None:
     """在 zone 内居中画纯黑白二维码(墨水屏友好)。空内容不画。"""
     import qrcode
