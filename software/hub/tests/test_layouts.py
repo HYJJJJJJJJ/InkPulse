@@ -42,12 +42,13 @@ def test_month_calendar_renders():
     assert black > 100   # 月历网格 + 数字
 
 
-def test_all_layouts_registered_and_render_full_frame():
-    from inkpulse_hub.render.engine import LAYOUTS, render_frame
+def test_all_builtin_layouts_render_full_frame():
+    from inkpulse_hub.render.engine import render_frame
+    from inkpulse_hub.render import layouts as L
     from inkpulse_hub.config import Config
     from inkpulse_hub.models import ClaudeStatus, Usage, TodoItem
     expected = {"dash", "photo", "usage", "todo", "clock", "split"}
-    assert expected <= set(LAYOUTS), f"缺布局: {expected - set(LAYOUTS)}"
+    assert expected <= set(L.load_store("")["layouts"])
     state = {
         "claude": ClaudeStatus(state="working", project="InkPulse"),
         "usage": Usage(input_tokens=1000, output_tokens=200, window_used_ratio=0.4),
@@ -60,6 +61,7 @@ def test_all_layouts_registered_and_render_full_frame():
     }
     for name in expected:
         cfg = Config()
+        cfg.layouts_store = ""
         cfg.layout_name = name
         f = render_frame(cfg, state)
         assert len(f.body) == 96000, f"{name} 帧大小错"

@@ -3,7 +3,8 @@ from fastapi import FastAPI, Request, Response, UploadFile, File
 from fastapi.responses import JSONResponse
 from .config import Config, save_runtime, RUNTIME_FIELDS
 from .state import HubState
-from .render.engine import render_frame, LAYOUTS
+from .render.engine import render_frame
+from .render import layouts as L
 
 
 def create_app(cfg: Config) -> FastAPI:
@@ -88,18 +89,19 @@ def create_app(cfg: Config) -> FastAPI:
     @app.get("/api/config")
     def api_config_get():
         data = {f: getattr(cfg, f) for f in RUNTIME_FIELDS}
-        data["layouts"] = list(LAYOUTS.keys())   # 供 UI 列布局选项
+        data["layouts"] = list(L.load_store(cfg.layouts_store)["layouts"].keys())
         return data
 
     @app.post("/api/config")
     async def api_config_set(request: Request):
         data = await request.json()
-        if "layout_name" in data and data["layout_name"] not in LAYOUTS:
+        names = L.load_store(cfg.layouts_store)["layouts"]
+        if "layout_name" in data and data["layout_name"] not in names:
             return JSONResponse({"error": "unknown layout"}, status_code=400)
         for k in RUNTIME_FIELDS:
             if k in data:
                 setattr(cfg, k, data[k])
-        save_runtime(cfg, cfg.runtime_store)     # 持久化 + 闭包 cfg 即时生效
+        save_runtime(cfg, cfg.runtime_store)
         return {"ok": True}
 
     # ---- 照片管理(photo 布局用) ----

@@ -134,6 +134,12 @@ def _center_text(d, z, txt, font, fill):
            txt, fill=fill, font=font)
 
 
+def draw_na(d: ImageDraw.ImageDraw, z: Zone) -> None:
+    """缺失/出错 widget 的占位框(供引擎按 widget 隔离容错调用)。"""
+    d.rectangle((z.x, z.y, z.x + z.w - 1, z.y + z.h - 1), outline=BLACK)
+    _center_text(d, z, "n/a", _font(20), BLACK)
+
+
 def draw_big_clock(d: ImageDraw.ImageDraw, z: Zone, now) -> None:
     """巨型 HH:MM 时钟, 居中(clock 布局用)。"""
     import time
