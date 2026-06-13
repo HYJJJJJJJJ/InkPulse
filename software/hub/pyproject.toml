@@ -10,6 +10,7 @@ dependencies = [
     "cnlunar>=0.2",
     "zeroconf>=0.130",
     "python-multipart>=0.0.9",
+    "qrcode>=7.4",
 ]
 
 [project.optional-dependencies]

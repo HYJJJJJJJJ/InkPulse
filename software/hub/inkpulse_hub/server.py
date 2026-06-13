@@ -3,7 +3,9 @@ from fastapi import FastAPI, Request, Response, UploadFile, File
 from fastapi.responses import JSONResponse
 from .config import Config, save_runtime, RUNTIME_FIELDS
 from .state import HubState
-from .render.engine import render_frame, LAYOUTS
+from .render.engine import render_frame
+from .render import layouts as L
+from .render.registry import REGISTRY
 
 
 def create_app(cfg: Config) -> FastAPI:
@@ -88,18 +90,58 @@ def create_app(cfg: Config) -> FastAPI:
     @app.get("/api/config")
     def api_config_get():
         data = {f: getattr(cfg, f) for f in RUNTIME_FIELDS}
-        data["layouts"] = list(LAYOUTS.keys())   # 供 UI 列布局选项
+        data["layouts"] = list(L.load_store(cfg.layouts_store)["layouts"].keys())
         return data
 
     @app.post("/api/config")
     async def api_config_set(request: Request):
         data = await request.json()
-        if "layout_name" in data and data["layout_name"] not in LAYOUTS:
+        names = L.load_store(cfg.layouts_store)["layouts"]
+        if "layout_name" in data and data["layout_name"] not in names:
             return JSONResponse({"error": "unknown layout"}, status_code=400)
         for k in RUNTIME_FIELDS:
             if k in data:
                 setattr(cfg, k, data[k])
-        save_runtime(cfg, cfg.runtime_store)     # 持久化 + 闭包 cfg 即时生效
+        save_runtime(cfg, cfg.runtime_store)
+        return {"ok": True}
+
+    # ---- 布局编辑: 网格 + widget 目录 + 自定义布局 CRUD ----
+    @app.get("/api/layouts")
+    def api_layouts_get():
+        store = L.load_store(cfg.layouts_store)
+        widgets = [{"name": s.name, "label": s.label,
+                    "default_span": s.default_span, "params": s.params}
+                   for s in REGISTRY.values()]
+        return {"grid": store["grid"], "layouts": store["layouts"], "widgets": widgets}
+
+    @app.put("/api/layouts/{name}")
+    async def api_layouts_put(name: str, request: Request):
+        data = await request.json()
+        placements = data.get("placements", [])
+        grid = L.load_store(cfg.layouts_store)["grid"]
+        for p in placements:
+            if p.get("widget") not in REGISTRY:
+                return JSONResponse({"error": f"unknown widget {p.get('widget')}"}, status_code=400)
+            try:
+                col, row = int(p["col"]), int(p["row"])
+                cs, rs = int(p["colspan"]), int(p["rowspan"])
+            except (KeyError, TypeError, ValueError):
+                return JSONResponse({"error": "bad placement"}, status_code=400)
+            if not (0 <= col and 0 <= row and cs >= 1 and rs >= 1
+                    and col + cs <= grid["cols"] and row + rs <= grid["rows"]):
+                return JSONResponse({"error": "out of grid"}, status_code=400)
+        try:
+            L.save_layout(cfg.layouts_store, name, placements)
+        except ValueError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        return {"ok": True}
+
+    @app.delete("/api/layouts/{name}")
+    def api_layouts_delete(name: str):
+        try:
+            L.delete_layout(cfg.layouts_store, name)
+        except ValueError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
         return {"ok": True}
 
     # ---- 照片管理(photo 布局用) ----

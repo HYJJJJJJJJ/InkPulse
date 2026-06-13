@@ -2,7 +2,9 @@
 import glob
 import json
 import os
+from dataclasses import dataclass
 from datetime import datetime, date, timedelta
+from typing import Iterator, Optional
 from ..models import Usage
 
 # 各模型族 per-1M-token 估算单价 (USD): (input, output, cache_write, cache_read)
@@ -59,6 +61,73 @@ def _record_local_date(rec: dict):
     return dt.date() if dt else None
 
 
+@dataclass
+class UsageRecord:
+    dt: datetime          # 本地时区
+    project: str          # basename(cwd), 缺失记 "?"
+    input: int
+    output: int
+    cache_read: int
+    cache_create: int
+    model: Optional[str]
+    source: str           # 来源文件路径(供 session_count 计数, 保持旧行为)
+
+
+def _project_of(rec: dict) -> str:
+    cwd = rec.get("cwd")
+    if isinstance(cwd, str) and cwd.strip():
+        return os.path.basename(cwd.rstrip("/")) or "?"
+    return "?"
+
+
+def _iter_usage_records(logs_dir: str) -> Iterator[UsageRecord]:
+    """遍历 logs_dir/**/*.jsonl, 逐条 yield 带 usage 的记录。
+    坏行 / 无时间戳 / 无 usage 一律跳过(沿用旧容错口径)。"""
+    if not os.path.isdir(logs_dir):
+        return
+    files = glob.glob(os.path.join(logs_dir, "**", "*.jsonl"), recursive=True)
+    for fp in files:
+        try:
+            with open(fp, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        rec = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    dt = _record_dt(rec)
+                    if dt is None:
+                        continue
+                    msg = rec.get("message") or {}
+                    usage = msg.get("usage")
+                    if not isinstance(usage, dict):
+                        continue
+                    yield UsageRecord(
+                        dt=dt,
+                        project=_project_of(rec),
+                        input=int(usage.get("input_tokens", 0) or 0),
+                        output=int(usage.get("output_tokens", 0) or 0),
+                        cache_read=int(usage.get("cache_read_input_tokens", 0) or 0),
+                        cache_create=int(usage.get("cache_creation_input_tokens", 0) or 0),
+                        model=msg.get("model"),
+                        source=fp,
+                    )
+        except OSError:
+            continue
+
+
+def _cost_of_record(r: UsageRecord) -> float:
+    """单条记录花费估算(复用 _cost_of 的定价口径)。"""
+    return _cost_of({
+        "input_tokens": r.input,
+        "output_tokens": r.output,
+        "cache_creation_input_tokens": r.cache_create,
+        "cache_read_input_tokens": r.cache_read,
+    }, r.model)
+
+
 def collect_usage(
     logs_dir: str,
     today: date | None = None,
@@ -70,52 +139,66 @@ def collect_usage(
     - 近 5h 滚动窗口 token 占 window_token_limit 的比例(window_used_ratio)
     """
     u = Usage()
-    if not os.path.isdir(logs_dir):
-        return u
     if now is None:
         now = datetime.now().astimezone()
     if today is None:
         today = now.date()
     window_start = now - timedelta(hours=_WINDOW_HOURS)
 
-    files = glob.glob(os.path.join(logs_dir, "**", "*.jsonl"), recursive=True)
     sessions_today = set()
     window_tokens = 0
-    for fp in files:
-        try:
-            with open(fp, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        rec = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue  # 容错：坏行跳过
-                    dt = _record_dt(rec)
-                    if dt is None:
-                        continue
-                    msg = rec.get("message") or {}
-                    usage = msg.get("usage")
-                    if not isinstance(usage, dict):
-                        continue
-                    # 今日累计 token + 花费
-                    if dt.date() == today:
-                        u.input_tokens += int(usage.get("input_tokens", 0) or 0)
-                        u.output_tokens += int(usage.get("output_tokens", 0) or 0)
-                        u.cache_tokens += int(usage.get("cache_read_input_tokens", 0) or 0)
-                        u.cost_usd += _cost_of(usage, msg.get("model"))
-                        sessions_today.add(fp)
-                    # 近 5h 滚动窗口 token(可能跨到昨天)。口径取净输入+输出,
-                    # 不含缓存读写——缓存量级极大(可上亿)会让任何上限秒满, 失去意义。
-                    if dt >= window_start:
-                        window_tokens += (
-                            int(usage.get("input_tokens", 0) or 0)
-                            + int(usage.get("output_tokens", 0) or 0)
-                        )
-        except OSError:
-            continue
+    for r in _iter_usage_records(logs_dir):
+        if r.dt.date() == today:
+            u.input_tokens += r.input
+            u.output_tokens += r.output
+            u.cache_tokens += r.cache_read
+            u.cost_usd += _cost_of_record(r)
+            sessions_today.add(r.source)
+        if r.dt >= window_start:
+            window_tokens += r.input + r.output
     u.session_count = len(sessions_today)
     if window_token_limit and window_token_limit > 0:
         u.window_used_ratio = min(1.0, window_tokens / window_token_limit)
     return u
+
+
+def collect_daily_usage(logs_dir: str, days: int = 14,
+                        now: datetime | None = None) -> list[dict]:
+    """近 days 天每日桶, 旧->新, 缺日补零。
+    返回 [{"date": date, "tokens": int(净), "cost": float}], 长度恒 = days。"""
+    if now is None:
+        now = datetime.now().astimezone()
+    today = now.date()
+    start = today - timedelta(days=days - 1)
+    buckets: dict = {}
+    for r in _iter_usage_records(logs_dir):
+        d = r.dt.date()
+        if start <= d <= today:
+            b = buckets.setdefault(d, [0, 0.0])
+            b[0] += r.input + r.output
+            b[1] += _cost_of_record(r)
+    out = []
+    for i in range(days):
+        d = start + timedelta(days=i)
+        tk, co = buckets.get(d, (0, 0.0))
+        out.append({"date": d, "tokens": tk, "cost": co})
+    return out
+
+
+def collect_project_usage(logs_dir: str, today: date | None = None,
+                          now: datetime | None = None) -> list[dict]:
+    """今日各项目桶, 按 tokens 降序。
+    返回 [{"project": str, "tokens": int(净), "cost": float}]; 空 -> []。"""
+    if now is None:
+        now = datetime.now().astimezone()
+    if today is None:
+        today = now.date()
+    buckets: dict = {}
+    for r in _iter_usage_records(logs_dir):
+        if r.dt.date() == today:
+            b = buckets.setdefault(r.project, [0, 0.0])
+            b[0] += r.input + r.output
+            b[1] += _cost_of_record(r)
+    out = [{"project": p, "tokens": v[0], "cost": v[1]} for p, v in buckets.items()]
+    out.sort(key=lambda x: x["tokens"], reverse=True)
+    return out

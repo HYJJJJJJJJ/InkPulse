@@ -1,6 +1,6 @@
 # inkpulse_hub/render/widgets.py
 from dataclasses import dataclass
-from PIL import ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 from ..models import ClaudeStatus, Usage, TodoItem
 
 BLACK = (0, 0, 0)
@@ -134,6 +134,12 @@ def _center_text(d, z, txt, font, fill):
            txt, fill=fill, font=font)
 
 
+def draw_na(d: ImageDraw.ImageDraw, z: Zone) -> None:
+    """缺失/出错 widget 的占位框(供引擎按 widget 隔离容错调用)。"""
+    d.rectangle((z.x, z.y, z.x + z.w - 1, z.y + z.h - 1), outline=BLACK)
+    _center_text(d, z, "n/a", _font(20), BLACK)
+
+
 def draw_big_clock(d: ImageDraw.ImageDraw, z: Zone, now) -> None:
     """巨型 HH:MM 时钟, 居中(clock 布局用)。"""
     import time
@@ -249,7 +255,7 @@ def draw_todos(d: ImageDraw.ImageDraw, z: Zone, items: list[TodoItem]) -> None:
     f = _font(20)
     y = cy
     for t in items[:4]:
-        box = "☑" if t.done else "☐"
+        box = "✓" if t.done else "□"   # 思源黑无 ☑/☐ 字形, 用确有的 ✓/□
         line = f"{box} {t.text}"
         d.text((z.x + 8, y), line, fill=BLACK, font=f)
         if t.done:   # 完成项删除线弱化
@@ -257,3 +263,101 @@ def draw_todos(d: ImageDraw.ImageDraw, z: Zone, items: list[TodoItem]) -> None:
             ly = y + 13
             d.line((z.x + 8, ly, z.x + 8 + w, ly), fill=BLACK, width=1)
         y += 34
+
+
+def draw_countdown(d: ImageDraw.ImageDraw, z: Zone, now, date_str, label="") -> None:
+    """倒计时/纪念日: 顶部标题栏(label) + 居中 D-N。0..3 天内标红。"""
+    import datetime, time
+    cy = _title_bar(d, z, label or "倒计时")
+    body = Zone(z.x, cy, z.w, z.y + z.h - cy)
+    try:
+        target = datetime.date.fromisoformat((date_str or "").strip())
+        today = datetime.date.fromtimestamp(now if now else time.time())
+        days = (target - today).days
+    except (ValueError, TypeError):
+        _center_text(d, body, "日期?", _font(24), BLACK)
+        return
+    if days > 0:
+        big = f"D-{days}"
+    elif days == 0:
+        big = "就在今天"
+    else:
+        big = f"已过{-days}天"
+    color = RED if 0 <= days <= 3 else BLACK
+    _center_text(d, body, big, _font(min(48, max(20, body.h - 8))), color)
+
+
+def draw_usage_trend(d: ImageDraw.ImageDraw, z: Zone, daily,
+                     days: int = 7, metric: str = "tokens") -> None:
+    """近 days 天用量竖直柱状图。daily: [{date, tokens, cost}] 旧->新。"""
+    days = max(1, min(int(days), 14))
+    key = metric if metric in ("tokens", "cost") else "tokens"
+    cy = _title_bar(d, z, f"用量趋势 · 近{days}天")
+    body = Zone(z.x, cy, z.w, z.y + z.h - cy)
+    series = (daily or [])[-days:]
+    vals = [max(0, x.get(key, 0)) for x in series]
+    if not series or max(vals, default=0) <= 0:
+        _center_text(d, body, "无数据", _font(20), BLACK)
+        return
+    n = len(series)
+    gap, label_h = 4, 16
+    chart_h = body.h - label_h
+    bw = max(2, (body.w - gap * (n + 1)) // n)
+    vmax = max(vals)
+    f = _font(12)
+    for i, (x, v) in enumerate(zip(series, vals)):
+        bx = body.x + gap + i * (bw + gap)
+        bh = int((chart_h - 2) * (v / vmax))
+        top = body.y + chart_h - bh
+        d.rectangle((bx, top, bx + bw - 1, body.y + chart_h - 1), fill=BLACK)
+        dt = x["date"]
+        lbl = f"{dt.month}/{dt.day}"
+        tw = d.textlength(lbl, font=f)
+        d.text((bx + (bw - tw) / 2, body.y + chart_h + 2), lbl, fill=BLACK, font=f)
+
+
+def draw_project_dist(d: ImageDraw.ImageDraw, z: Zone, projects,
+                      top_n: int = 5, metric: str = "tokens") -> None:
+    """今日各项目占比横向条。projects: [{project, tokens, cost}]。"""
+    top_n = max(1, int(top_n))
+    key = metric if metric in ("tokens", "cost") else "tokens"
+    cy = _title_bar(d, z, "项目分布 · 今日")
+    body = Zone(z.x, cy, z.w, z.y + z.h - cy)
+    items = sorted(projects or [], key=lambda x: x.get(key, 0), reverse=True)
+    total = sum(max(0, x.get(key, 0)) for x in items)
+    if not items or total <= 0:
+        _center_text(d, body, "无数据", _font(20), BLACK)
+        return
+    rows = [(x["project"], max(0, x.get(key, 0))) for x in items[:top_n]]
+    rest = items[top_n:]
+    if rest:
+        rows.append(("其他", sum(max(0, x.get(key, 0)) for x in rest)))
+    f = _font(16)
+    row_h = max(18, min(28, body.h // len(rows)))
+    name_w, pct_w = 84, 48
+    bar_x = body.x + name_w
+    bar_max = max(4, body.w - name_w - pct_w)
+    for i, (name, v) in enumerate(rows):
+        ry = body.y + i * row_h
+        nm = name if len(name) <= 6 else name[:5] + "…"
+        d.text((body.x + 4, ry), nm, fill=BLACK, font=f)
+        frac = v / total
+        bw = int(bar_max * frac)
+        d.rectangle((bar_x, ry + 3, bar_x + bw, ry + row_h - 6), fill=BLACK)
+        d.text((bar_x + bw + 4, ry), f"{int(round(frac * 100))}%", fill=BLACK, font=f)
+
+
+def draw_qrcode(img: Image.Image, z: Zone, content: str) -> None:
+    """在 zone 内居中画纯黑白二维码(墨水屏友好)。空内容不画。"""
+    import qrcode
+    if not content:
+        return
+    qr = qrcode.QRCode(border=1, box_size=1)
+    qr.add_data(content)
+    qr.make(fit=True)
+    q = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+    size = max(1, min(z.w, z.h))
+    q = q.resize((size, size), Image.NEAREST)   # 最近邻, 保持纯黑白不出灰边
+    ox = z.x + (z.w - size) // 2
+    oy = z.y + (z.h - size) // 2
+    img.paste(q, (ox, oy))

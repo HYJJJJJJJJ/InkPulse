@@ -16,6 +16,7 @@ class Config:
     photos_dir: str = os.path.expanduser("~/inkpulse/photos")
     todos_store: str = os.path.expanduser("~/inkpulse/todos.json")
     runtime_store: str = os.path.expanduser("~/inkpulse/runtime.json")
+    layouts_store: str = os.path.expanduser("~/inkpulse/layouts.json")
     layout: list[str] = field(default_factory=lambda: list(DEFAULT_LAYOUT))
     layout_name: str = "dash"   # 当前布局: dash/photo/usage/todo/clock/split
     # 5h 滚动窗口的 token 估算上限(用于 usage 进度条占用比例);按你的订阅档位调整
@@ -38,6 +39,7 @@ def load_config(path: Optional[str]) -> Config:
     cfg.photos_dir = os.path.expanduser(sources.get("photos_dir", cfg.photos_dir))
     cfg.todos_store = os.path.expanduser(sources.get("todos_store", cfg.todos_store))
     cfg.runtime_store = os.path.expanduser(sources.get("runtime_store", cfg.runtime_store))
+    cfg.layouts_store = os.path.expanduser(sources.get("layouts_store", cfg.layouts_store))
     layout = data.get("layout", {})
     cfg.layout = layout.get("widgets", cfg.layout)
     cfg.layout_name = layout.get("name", cfg.layout_name)

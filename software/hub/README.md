@@ -122,9 +122,10 @@ sources:
   claude_logs: ~/.claude/projects     # Claude Code 会话日志目录
   photos_dir: ~/inkpulse/photos        # 照片目录
   todos_store: ~/inkpulse/todos.json   # 待办存储
+  layouts_store: ~/inkpulse/layouts.json   # 自定义布局存储(网页编辑器写入)
 layout:
-  widgets: [header_clock_env, claude_status, usage, todos]
-  # 改成 [photo] 即全屏照片布局
+  # 当前生效布局名(对应 layouts.json 里的 key);内置: dash/photo/usage/todo/clock/split
+  name: dash
 usage:
   window_token_limit: 2000000   # 5h 窗口 token 上限，进度条按此算占用
   budget_usd: null              # 今日花费预算(USD)，超过则花费数字标红；null=不启用
@@ -138,6 +139,7 @@ usage:
 - **红色策略（强调 + 告警，但克制护刷新/防残影）**：固定强调红 = 日期；告警红 = Claude 等输入/出错、窗口占用 >90%、超预算（需配 `budget_usd`）、节日。分区标题栏用黑底白字（结构，不用红），正文/待办/温湿度保持黑色。
 - **丰富元素**：黑底白字分区标题栏、放大的花费 hero 数字、状态持续时长（`已 N 分钟`）、今日会话数、窗口占用百分比、真复选框 ☑/☐（完成项删除线）。
 - e-ink 约束:只有黑/白/红，全刷约 20s，红刷新更慢/残影更顽固;`engine.py` 关抗锯齿（`fontmode="1"`）保证红字为纯 `(255,0,0)`。
+- **布局自定义**:屏幕为 8×6 网格,布局是数据(`layouts.json`)。浏览器开 `/config` 的"布局编辑器"可点格子放 widget、存成命名布局。加新 widget = 在 `render/registry.py` 注册一个绘制函数。
 
 ## 接 Claude Code 状态（hooks）
 
