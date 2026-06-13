@@ -183,3 +183,22 @@ def collect_daily_usage(logs_dir: str, days: int = 14,
         tk, co = buckets.get(d, (0, 0.0))
         out.append({"date": d, "tokens": tk, "cost": co})
     return out
+
+
+def collect_project_usage(logs_dir: str, today: date | None = None,
+                          now: datetime | None = None) -> list[dict]:
+    """今日各项目桶, 按 tokens 降序。
+    返回 [{"project": str, "tokens": int(净), "cost": float}]; 空 -> []。"""
+    if now is None:
+        now = datetime.now().astimezone()
+    if today is None:
+        today = now.date()
+    buckets: dict = {}
+    for r in _iter_usage_records(logs_dir):
+        if r.dt.date() == today:
+            b = buckets.setdefault(r.project, [0, 0.0])
+            b[0] += r.input + r.output
+            b[1] += _cost_of_record(r)
+    out = [{"project": p, "tokens": v[0], "cost": v[1]} for p, v in buckets.items()]
+    out.sort(key=lambda x: x["tokens"], reverse=True)
+    return out
