@@ -6,7 +6,7 @@ import cnlunar
 from .config import Config
 from .models import ClaudeStatus
 from .collectors.todos import TodoStore
-from .collectors.usage import collect_usage
+from .collectors.usage import collect_usage, collect_daily_usage, collect_project_usage
 from .collectors.photos import pick_photo
 
 _WEEKDAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
@@ -61,6 +61,8 @@ class HubState:
             "photo": pick_photo(self.cfg.photos_dir, now=now),
             "env": dict(self.env),
             "clock": self._clock(now),
+            "usage_daily": collect_daily_usage(self.cfg.claude_logs),
+            "usage_projects": collect_project_usage(self.cfg.claude_logs),
             "lunar": lunar_info(now),
             "now": now,
         }
