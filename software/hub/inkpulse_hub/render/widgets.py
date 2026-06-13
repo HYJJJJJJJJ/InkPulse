@@ -287,6 +287,35 @@ def draw_countdown(d: ImageDraw.ImageDraw, z: Zone, now, date_str, label="") -> 
     _center_text(d, body, big, _font(min(48, max(20, body.h - 8))), color)
 
 
+def draw_usage_trend(d: ImageDraw.ImageDraw, z: Zone, daily,
+                     days: int = 7, metric: str = "tokens") -> None:
+    """近 days 天用量竖直柱状图。daily: [{date, tokens, cost}] 旧->新。"""
+    days = max(1, min(int(days), 14))
+    key = metric if metric in ("tokens", "cost") else "tokens"
+    cy = _title_bar(d, z, f"用量趋势 · 近{days}天")
+    body = Zone(z.x, cy, z.w, z.y + z.h - cy)
+    series = (daily or [])[-days:]
+    vals = [max(0, x.get(key, 0)) for x in series]
+    if not series or max(vals, default=0) <= 0:
+        _center_text(d, body, "无数据", _font(20), BLACK)
+        return
+    n = len(series)
+    gap, label_h = 4, 16
+    chart_h = body.h - label_h
+    bw = max(2, (body.w - gap * (n + 1)) // n)
+    vmax = max(vals)
+    f = _font(12)
+    for i, (x, v) in enumerate(zip(series, vals)):
+        bx = body.x + gap + i * (bw + gap)
+        bh = int((chart_h - 2) * (v / vmax))
+        top = body.y + chart_h - bh
+        d.rectangle((bx, top, bx + bw - 1, body.y + chart_h - 1), fill=BLACK)
+        dt = x["date"]
+        lbl = f"{dt.month}/{dt.day}"
+        tw = d.textlength(lbl, font=f)
+        d.text((bx + (bw - tw) / 2, body.y + chart_h + 2), lbl, fill=BLACK, font=f)
+
+
 def draw_qrcode(img: Image.Image, z: Zone, content: str) -> None:
     """在 zone 内居中画纯黑白二维码(墨水屏友好)。空内容不画。"""
     import qrcode
