@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from inkpulse_hub.collectors.usage import _iter_usage_records, UsageRecord
 
 NOW = datetime(2026, 6, 13, 12, 0, 0, tzinfo=timezone.utc).astimezone()
