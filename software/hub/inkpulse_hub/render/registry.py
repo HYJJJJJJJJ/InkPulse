@@ -60,6 +60,10 @@ def _countdown(d, img, z, state, cfg, p):
     W.draw_countdown(d, z, state.get("now"), p.get("date"), p.get("label", ""))
 
 
+def _qrcode(d, img, z, state, cfg, p):
+    W.draw_qrcode(img, z, p.get("content", ""))
+
+
 REGISTRY: dict[str, WidgetSpec] = {
     "header":        WidgetSpec("header", "头部", _header, {"cols": 8, "rows": 1}),
     "claude_status": WidgetSpec("claude_status", "Claude状态", _claude, {"cols": 4, "rows": 3}),
@@ -72,4 +76,6 @@ REGISTRY: dict[str, WidgetSpec] = {
     "countdown":     WidgetSpec("countdown", "倒计时", _countdown, {"cols": 3, "rows": 2},
                                 [{"key": "date", "label": "目标日期", "type": "date", "default": ""},
                                  {"key": "label", "label": "标签", "type": "text", "default": ""}]),
+    "qrcode":        WidgetSpec("qrcode", "二维码", _qrcode, {"cols": 2, "rows": 3},
+                                [{"key": "content", "label": "内容(URL/文本)", "type": "text", "default": ""}]),
 }

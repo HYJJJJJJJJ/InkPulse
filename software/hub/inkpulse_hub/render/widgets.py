@@ -1,6 +1,6 @@
 # inkpulse_hub/render/widgets.py
 from dataclasses import dataclass
-from PIL import ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 from ..models import ClaudeStatus, Usage, TodoItem
 
 BLACK = (0, 0, 0)
@@ -285,3 +285,19 @@ def draw_countdown(d: ImageDraw.ImageDraw, z: Zone, now, date_str, label="") -> 
         big = f"已过{-days}天"
     color = RED if 0 <= days <= 3 else BLACK
     _center_text(d, body, big, _font(min(48, max(20, body.h - 8))), color)
+
+
+def draw_qrcode(img: Image.Image, z: Zone, content: str) -> None:
+    """在 zone 内居中画纯黑白二维码(墨水屏友好)。空内容不画。"""
+    import qrcode
+    if not content:
+        return
+    qr = qrcode.QRCode(border=1, box_size=1)
+    qr.add_data(content)
+    qr.make(fit=True)
+    q = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+    size = max(1, min(z.w, z.h))
+    q = q.resize((size, size), Image.NEAREST)   # 最近邻, 保持纯黑白不出灰边
+    ox = z.x + (z.w - size) // 2
+    oy = z.y + (z.h - size) // 2
+    img.paste(q, (ox, oy))
