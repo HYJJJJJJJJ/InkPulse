@@ -160,3 +160,26 @@ def collect_usage(
     if window_token_limit and window_token_limit > 0:
         u.window_used_ratio = min(1.0, window_tokens / window_token_limit)
     return u
+
+
+def collect_daily_usage(logs_dir: str, days: int = 14,
+                        now: datetime | None = None) -> list[dict]:
+    """近 days 天每日桶, 旧->新, 缺日补零。
+    返回 [{"date": date, "tokens": int(净), "cost": float}], 长度恒 = days。"""
+    if now is None:
+        now = datetime.now().astimezone()
+    today = now.date()
+    start = today - timedelta(days=days - 1)
+    buckets: dict = {}
+    for r in _iter_usage_records(logs_dir):
+        d = r.dt.date()
+        if start <= d <= today:
+            b = buckets.setdefault(d, [0, 0.0])
+            b[0] += r.input + r.output
+            b[1] += _cost_of_record(r)
+    out = []
+    for i in range(days):
+        d = start + timedelta(days=i)
+        tk, co = buckets.get(d, (0, 0.0))
+        out.append({"date": d, "tokens": tk, "cost": co})
+    return out
