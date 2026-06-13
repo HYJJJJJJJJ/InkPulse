@@ -35,8 +35,8 @@ BUILTIN_LAYOUTS = {
     ]},
     "split": {"builtin": True, "placements": [
         _p("header", 0, 0, 4, 1),
-        _p("claude_status", 0, 1, 4, 3),
-        _p("usage", 0, 4, 4, 2),
+        _p("claude_status", 0, 1, 4, 2),
+        _p("usage", 0, 3, 4, 3),
         _p("calendar", 4, 0, 4, 3),
         _p("todos", 4, 3, 4, 3),
     ]},

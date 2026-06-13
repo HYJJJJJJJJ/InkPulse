@@ -177,7 +177,7 @@ def draw_month_calendar(d: ImageDraw.ImageDraw, z: Zone, now) -> None:
     weeks = calendar.Calendar(firstweekday=0).monthdayscalendar(year, mon)
     cw, ch = z.w // 7, z.h // (len(weeks) + 1)
     heads = ["一", "二", "三", "四", "五", "六", "日"]
-    fh = _font(max(12, ch // 3))
+    fh = _font(max(14, int(ch * 0.45)))   # 表头与日期数字字号更接近
     for c, hd in enumerate(heads):
         d.text((z.x + c * cw + cw // 3, z.y + 2), hd, fill=BLACK, font=fh)
     f = _font(max(14, ch // 2))
