@@ -212,7 +212,7 @@ function edParamForm() {
   box.innerHTML = w.params.map(p => {
     if (p.type === 'select') {
       const opts = (p.options || []).map(o =>
-        `<option value="${o.value}" ${o.value === p.default ? 'selected' : ''}>${esc(o.label)}</option>`).join('');
+        `<option value="${esc(o.value)}" ${o.value === p.default ? 'selected' : ''}>${esc(o.label)}</option>`).join('');
       return `<div class="row"><label>${esc(p.label)}</label><select data-k="${p.key}" style="flex:1;padding:6px 8px;border:1px solid #d4d4d8;border-radius:6px">${opts}</select></div>`;
     }
     const t = p.type === 'date' ? 'date' : (p.type === 'number' ? 'number' : 'text');
