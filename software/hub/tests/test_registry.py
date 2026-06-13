@@ -15,6 +15,8 @@ def _state():
         "clock": "2026-06-13 14:32 周五",
         "lunar": {"text": "农历四月廿七", "festival": ""},
         "now": 1718000000.0,
+        "usage_daily": [{"date": __import__("datetime").date(2026, 6, 13), "tokens": 100, "cost": 0.1}],
+        "usage_projects": [{"project": "InkPulse", "tokens": 100, "cost": 0.1}],
     }
 
 
@@ -27,7 +29,8 @@ def _img():
 
 def test_existing_widgets_registered():
     expected = {"header", "claude_status", "usage", "usage_ring",
-                "todos", "big_clock", "calendar", "photo"}
+                "todos", "big_clock", "calendar", "photo",
+                "usage_trend", "project_dist"}
     assert expected <= set(REGISTRY)
     for name in expected:
         assert isinstance(REGISTRY[name], WidgetSpec)
@@ -39,6 +42,14 @@ def test_each_widget_draws_without_error():
     z = Zone(0, 0, 400, 240)
     for name, spec in REGISTRY.items():
         spec.draw(d, img, z, _state(), Config(), {})   # 不应抛异常
+
+
+def test_phase2_widgets_have_select_metric_param():
+    for name in ("usage_trend", "project_dist"):
+        params = REGISTRY[name].params
+        metric = next(p for p in params if p["key"] == "metric")
+        assert metric["type"] == "select"
+        assert {"tokens", "cost"} <= {o["value"] for o in metric["options"]}
 
 
 def test_header_widget_paints_pixels():

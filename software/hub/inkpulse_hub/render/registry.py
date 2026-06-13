@@ -64,6 +64,18 @@ def _qrcode(d, img, z, state, cfg, p):
     W.draw_qrcode(img, z, p.get("content", ""))
 
 
+def _usage_trend(d, img, z, state, cfg, p):
+    W.draw_usage_trend(d, z, state.get("usage_daily", []),
+                       days=int(p.get("days", 7) or 7),
+                       metric=p.get("metric", "tokens"))
+
+
+def _project_dist(d, img, z, state, cfg, p):
+    W.draw_project_dist(d, z, state.get("usage_projects", []),
+                        top_n=int(p.get("top_n", 5) or 5),
+                        metric=p.get("metric", "tokens"))
+
+
 REGISTRY: dict[str, WidgetSpec] = {
     "header":        WidgetSpec("header", "头部", _header, {"cols": 8, "rows": 1}),
     "claude_status": WidgetSpec("claude_status", "Claude状态", _claude, {"cols": 4, "rows": 3}),
@@ -78,4 +90,14 @@ REGISTRY: dict[str, WidgetSpec] = {
                                  {"key": "label", "label": "标签", "type": "text", "default": ""}]),
     "qrcode":        WidgetSpec("qrcode", "二维码", _qrcode, {"cols": 2, "rows": 3},
                                 [{"key": "content", "label": "内容(URL/文本)", "type": "text", "default": ""}]),
+    "usage_trend":   WidgetSpec("usage_trend", "用量趋势", _usage_trend, {"cols": 4, "rows": 3},
+        [{"key": "days", "label": "天数", "type": "number", "default": 7},
+         {"key": "metric", "label": "度量", "type": "select", "default": "tokens",
+          "options": [{"value": "tokens", "label": "Token数"},
+                      {"value": "cost", "label": "花费$"}]}]),
+    "project_dist":  WidgetSpec("project_dist", "项目分布", _project_dist, {"cols": 4, "rows": 3},
+        [{"key": "top_n", "label": "显示前N项", "type": "number", "default": 5},
+         {"key": "metric", "label": "度量", "type": "select", "default": "tokens",
+          "options": [{"value": "tokens", "label": "Token数"},
+                      {"value": "cost", "label": "花费$"}]}]),
 }
