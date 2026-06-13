@@ -37,6 +37,25 @@
   </div>
 
   <div class="card">
+    <h2>布局编辑器
+      <span style="float:right">
+        <select id="edLayout" onchange="edPick(this.value)" style="padding:4px 8px;border-radius:6px"></select>
+        <button class="ghost" style="padding:4px 10px" onclick="edNew()">新建</button>
+        <button class="ghost" style="padding:4px 10px" onclick="edDelete()">删除</button>
+      </span>
+    </h2>
+    <div id="edGrid" style="display:grid;grid-template-columns:repeat(8,1fr);gap:2px;background:#111;border:2px solid #111;aspect-ratio:5/3"></div>
+    <div class="row" style="margin-top:10px">
+      <label>选中区域</label>
+      <select id="edWidget" style="flex:1;padding:6px 8px;border:1px solid #d4d4d8;border-radius:6px"></select>
+      <button onclick="edPlace()">放入</button>
+    </div>
+    <div id="edParams"></div>
+    <div class="hint">点格子起点、再点终点框出矩形 → 选 widget(+填参数)→"放入"。点已放置的 widget 可删除。改完点"保存布局"。内置布局可直接改(会另存为同名覆盖)。</div>
+    <button onclick="edSave()" style="margin-top:8px">保存布局</button>
+  </div>
+
+  <div class="card">
     <h2>实时预览
       <span style="float:right">
         <button class="ghost" style="padding:4px 12px" onclick="refreshPreview()">刷新预览</button>
@@ -156,7 +175,118 @@ async function upload(){
 async function del(n){
   await fetch('/api/photos/'+encodeURIComponent(n),{method:'DELETE'});loadPhotos();
 }
+// ===== 布局编辑器 =====
+const GW = 8, GH = 6;        // 网格列/行
+let edCat = [];              // widget 目录
+let edPlacements = [];       // 当前编辑的 placements
+let edName = null;           // 当前编辑布局名
+let edSel = null;            // 选区 {c0,r0,c1,r1}
+let edAnchor = null;         // 框选起点
+
+async function edLoad() {
+  const data = await (await fetch('/api/layouts')).json();
+  edCat = data.widgets;
+  const sel = document.getElementById('edLayout');
+  sel.innerHTML = Object.keys(data.layouts).map(n => `<option>${esc(n)}</option>`).join('');
+  const ws = document.getElementById('edWidget');
+  ws.innerHTML = edCat.map(w => `<option value="${w.name}">${esc(w.label)}</option>`).join('');
+  ws.onchange = edParamForm; edParamForm();
+  edPick(sel.value);
+}
+
+function edPick(name) {
+  edName = name;
+  fetch('/api/layouts').then(r => r.json()).then(d => {
+    edPlacements = JSON.parse(JSON.stringify((d.layouts[name] || {}).placements || []));
+    document.getElementById('edLayout').value = name;
+    edSel = null; edAnchor = null; edRender();
+  });
+}
+
+function edParamForm() {
+  const w = edCat.find(x => x.name === document.getElementById('edWidget').value);
+  const box = document.getElementById('edParams');
+  if (!w || !w.params.length) { box.innerHTML = ''; return; }
+  box.innerHTML = w.params.map(p =>
+    `<div class="row"><label>${esc(p.label)}</label><input data-k="${p.key}" type="${p.type === 'date' ? 'date' : (p.type === 'number' ? 'number' : 'text')}" value="${p.default || ''}"></div>`).join('');
+}
+
+function edRender() {
+  const g = document.getElementById('edGrid');
+  g.innerHTML = '';
+  const occ = {};
+  edPlacements.forEach((p, i) => {
+    for (let c = p.col; c < p.col + p.colspan; c++)
+      for (let r = p.row; r < p.row + p.rowspan; r++) occ[c + ',' + r] = i;
+  });
+  for (let r = 0; r < GH; r++) for (let c = 0; c < GW; c++) {
+    const cell = document.createElement('div');
+    cell.style.cssText = 'background:#fff;min-height:26px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#3730a3;cursor:pointer;text-align:center;line-height:1.1';
+    const idx = occ[c + ',' + r];
+    if (idx !== undefined) {
+      const w = edCat.find(x => x.name === edPlacements[idx].widget);
+      cell.style.background = '#e0e7ff';
+      cell.textContent = (w ? w.label : edPlacements[idx].widget);
+      cell.onclick = () => { if (confirm('删除这个 widget?')) { edPlacements.splice(idx, 1); edRender(); } };
+    } else {
+      const inSel = edSel && c >= edSel.c0 && c <= edSel.c1 && r >= edSel.r0 && r <= edSel.r1;
+      if (inSel) cell.style.background = '#fef9c3';
+      cell.onclick = () => edClick(c, r);
+    }
+    g.appendChild(cell);
+  }
+}
+
+function edClick(c, r) {
+  if (!edAnchor) { edAnchor = { c, r }; edSel = { c0: c, r0: r, c1: c, r1: r }; }
+  else {
+    edSel = { c0: Math.min(edAnchor.c, c), r0: Math.min(edAnchor.r, r),
+              c1: Math.max(edAnchor.c, c), r1: Math.max(edAnchor.r, r) };
+    edAnchor = null;
+  }
+  edRender();
+}
+
+function edPlace() {
+  if (!edSel) { alert('先在网格里框选一块区域'); return; }
+  const widget = document.getElementById('edWidget').value;
+  const params = {};
+  document.querySelectorAll('#edParams input').forEach(i => params[i.dataset.k] = i.value);
+  edPlacements.push({
+    widget, col: edSel.c0, row: edSel.r0,
+    colspan: edSel.c1 - edSel.c0 + 1, rowspan: edSel.r1 - edSel.r0 + 1, params
+  });
+  edSel = null; edAnchor = null; edRender();
+}
+
+async function edSave() {
+  const r = await fetch('/api/layouts/' + encodeURIComponent(edName), {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ placements: edPlacements })
+  });
+  if (!r.ok) { alert('保存失败: ' + (await r.json()).error); return; }
+  alert('已保存。切到该布局并"刷新屏幕"即可上屏。');
+  load();                        // 刷新顶部布局列表
+  setTimeout(refreshPreview, 300);
+}
+
+async function edNew() {
+  const name = prompt('新布局名'); if (!name) return;
+  edName = name; edPlacements = []; edSel = null; edAnchor = null;
+  const sel = document.getElementById('edLayout');
+  if (![...sel.options].some(o => o.value === name))
+    sel.insertAdjacentHTML('beforeend', `<option>${esc(name)}</option>`);
+  sel.value = name; edRender();
+}
+
+async function edDelete() {
+  if (!edName) return;
+  const r = await fetch('/api/layouts/' + encodeURIComponent(edName), { method: 'DELETE' });
+  if (!r.ok) { alert((await r.json()).error); return; }
+  edLoad(); load();
+}
 load();
+edLoad();
 </script>
 </body>
 </html>
