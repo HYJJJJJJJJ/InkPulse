@@ -58,3 +58,12 @@ def test_put_rejects_overwriting_builtin(tmp_path):
     r = c.put("/api/layouts/dash", json={"placements": [
         {"widget": "todos", "col": 0, "row": 0, "colspan": 8, "rowspan": 6}]})
     assert r.status_code == 400
+
+
+def test_catalog_exposes_phase2_widgets_with_select(tmp_path):
+    cfg, c = _client(tmp_path)
+    widgets = {w["name"]: w for w in c.get("/api/layouts").json()["widgets"]}
+    assert {"usage_trend", "project_dist"} <= set(widgets)
+    metric = next(p for p in widgets["usage_trend"]["params"] if p["key"] == "metric")
+    assert metric["type"] == "select"
+    assert {"tokens", "cost"} <= {o["value"] for o in metric["options"]}

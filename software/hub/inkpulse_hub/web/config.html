@@ -209,8 +209,15 @@ function edParamForm() {
   const w = edCat.find(x => x.name === document.getElementById('edWidget').value);
   const box = document.getElementById('edParams');
   if (!w || !w.params.length) { box.innerHTML = ''; return; }
-  box.innerHTML = w.params.map(p =>
-    `<div class="row"><label>${esc(p.label)}</label><input data-k="${p.key}" type="${p.type === 'date' ? 'date' : (p.type === 'number' ? 'number' : 'text')}" value="${p.default || ''}"></div>`).join('');
+  box.innerHTML = w.params.map(p => {
+    if (p.type === 'select') {
+      const opts = (p.options || []).map(o =>
+        `<option value="${o.value}" ${o.value === p.default ? 'selected' : ''}>${esc(o.label)}</option>`).join('');
+      return `<div class="row"><label>${esc(p.label)}</label><select data-k="${p.key}" style="flex:1;padding:6px 8px;border:1px solid #d4d4d8;border-radius:6px">${opts}</select></div>`;
+    }
+    const t = p.type === 'date' ? 'date' : (p.type === 'number' ? 'number' : 'text');
+    return `<div class="row"><label>${esc(p.label)}</label><input data-k="${p.key}" type="${t}" value="${p.default || ''}"></div>`;
+  }).join('');
 }
 
 function edRender() {
@@ -253,7 +260,7 @@ function edPlace() {
   if (!edSel) { alert('先在网格里框选一块区域'); return; }
   const widget = document.getElementById('edWidget').value;
   const params = {};
-  document.querySelectorAll('#edParams input').forEach(i => params[i.dataset.k] = i.value);
+  document.querySelectorAll('#edParams input, #edParams select').forEach(i => params[i.dataset.k] = i.value);
   edPlacements.push({
     widget, col: edSel.c0, row: edSel.r0,
     colspan: edSel.c1 - edSel.c0 + 1, rowspan: edSel.r1 - edSel.r0 + 1, params
