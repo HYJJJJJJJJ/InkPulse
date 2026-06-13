@@ -191,25 +191,55 @@ def draw_month_calendar(d: ImageDraw.ImageDraw, z: Zone, now) -> None:
                    fill=(RED if day == today else BLACK), font=f)
 
 
+def _parse_clock(clock_text: str):
+    """把 '2026-06-13 17:01 周六' 拆成 (时间, 中文日期, 星期)。
+    格式异常时返回 (None, 原串, '')。"""
+    parts = (clock_text or "").split()
+    if len(parts) != 3:
+        return None, clock_text or "", ""
+    ymd, hm, weekday = parts
+    try:
+        _, m, dd = ymd.split("-")
+        date_cn = f"{int(m)}月{int(dd)}日"
+    except ValueError:
+        date_cn = ymd
+    return hm, date_cn, weekday
+
+
 def draw_header(d: ImageDraw.ImageDraw, z: Zone, clock_text: str, lunar, temp, humidity, rssi=None) -> None:
-    f1 = _font(22)
     f2 = _font(18)
-    # 第一行: 日期(红强调) + 温湿度(黑)
-    d.text((z.x + 6, z.y + 6), clock_text, fill=RED, font=f1)
-    t = f"{temp:.0f}C" if temp is not None else "n/a"
+    time_str, date_cn, weekday = _parse_clock(clock_text)
+    text = (lunar or {}).get("text", "")
+    fest = (lunar or {}).get("festival", "")
+    if time_str:
+        # 左侧: 大号时间(黑, 一眼可读)
+        big = _font(46)
+        d.text((z.x + 8, z.y + 2), time_str, fill=BLACK, font=big)
+        cx = z.x + 8 + int(d.textlength(time_str, font=big)) + 18
+        # 右栏上: 中文日期(黑) + 星期(红强调)
+        sub = _font(20)
+        d.text((cx, z.y + 6), date_cn + " ", fill=BLACK, font=sub)
+        d.text((cx + int(d.textlength(date_cn + " ", font=sub)), z.y + 6),
+               weekday, fill=RED, font=sub)
+        # 右栏下: 农历(黑) + 节日(红)
+        d.text((cx, z.y + 36), text, fill=BLACK, font=f2)
+        if fest:
+            d.text((cx + int(d.textlength(text + " · ", font=f2)), z.y + 36),
+                   fest, fill=RED, font=f2)
+    else:
+        # 兜底: 时钟串格式异常时退回旧式整行
+        d.text((z.x + 6, z.y + 6), clock_text, fill=RED, font=_font(22))
+        d.text((z.x + 6, z.y + 42), text, fill=BLACK, font=f2)
+        if fest:
+            d.text((z.x + 6 + int(d.textlength(text + " · ", font=f2)), z.y + 42),
+                   fest, fill=RED, font=f2)
+    # 右上角: 温度(°C) + 湿度 + WiFi 信号格
+    t = f"{temp:.0f}°C" if temp is not None else "n/a"
     env = t
     if humidity is not None and 0 <= humidity <= 100:
         env = f"{t}  {humidity:.0f}%"
-    d.text((z.x + z.w - 160, z.y + 8), env, fill=BLACK, font=f1)
-    _draw_signal(d, z, rssi)   # 右上角 WiFi 信号格(在线状态)
-    # 第二行: 农历(黑) + 节日(红)
-    lx, ly = z.x + 6, z.y + 42
-    text = (lunar or {}).get("text", "")
-    fest = (lunar or {}).get("festival", "")
-    d.text((lx, ly), text, fill=BLACK, font=f2)
-    if fest:
-        w = d.textlength(text + " · ", font=f2)
-        d.text((lx + w, ly), fest, fill=RED, font=f2)
+    d.text((z.x + z.w - 170, z.y + 8), env, fill=BLACK, font=_font(22))
+    _draw_signal(d, z, rssi)
     d.line((z.x, z.y + z.h - 1, z.x + z.w, z.y + z.h - 1), fill=BLACK, width=1)
 
 
