@@ -62,6 +62,13 @@ Desktop.ini
 # Python
 __pycache__/
 cad/__pycache__/
+*.pyc
+# Python 虚拟环境 (本地按 run.sh 重建, 不入库)
+.venv/
+venv/
+
+# WSL: Windows 下载文件的备用数据流标记
+*:Zone.Identifier
 
 # ---- CAD 预览渲染图 (由 cad/render_preview.py 生成，可随时重跑，无需入库) ----
 cad/output/*.png
