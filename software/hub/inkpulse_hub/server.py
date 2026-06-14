@@ -7,6 +7,7 @@ from .render.engine import render_frame
 from .render import layouts as L
 from .render.registry import REGISTRY
 import time
+import datetime as _dt
 from .collectors.habits import week_dates
 from .collectors import weather as weather_mod
 
@@ -148,6 +149,37 @@ def create_app(cfg: Config) -> FastAPI:
             w = state.weather.current(time.time())
         return {"place": cfg.weather_place, "lat": cfg.weather_lat,
                 "lon": cfg.weather_lon, "weather": w}
+
+    def _valid_event(title, date, time):
+        if not (title or "").strip():
+            return False
+        try:
+            _dt.date.fromisoformat(date)
+        except (TypeError, ValueError):
+            return False
+        if time:
+            try:
+                _dt.time.fromisoformat(time)
+            except (TypeError, ValueError):
+                return False
+        return True
+
+    @app.get("/api/events")
+    def api_events_list():
+        return state.events.list()
+
+    @app.post("/api/events")
+    async def api_events_add(request: Request):
+        data = await request.json()
+        title, date, time = data.get("title", ""), data.get("date", ""), data.get("time", "") or ""
+        if not _valid_event(title, date, time):
+            return JSONResponse({"error": "invalid event"}, status_code=400)
+        return state.events.add(title.strip(), date, time)
+
+    @app.delete("/api/events/{eid}")
+    def api_events_delete(eid: str):
+        state.events.delete(eid)
+        return {"ok": True}
 
     # ---- 配置中心: 选布局 / 调参数 ----
     @app.get("/config", response_class=HTMLResponse)
