@@ -608,3 +608,28 @@ def draw_agenda(d: ImageDraw.ImageDraw, z: Zone, events, now) -> None:
         while title and d.textlength(title, font=f) > avail:
             title = title[:-1]
         d.text((tx, y), title, fill=BLACK, font=f)
+
+
+def draw_market(d: ImageDraw.ImageDraw, z: Zone, quotes) -> None:
+    """自选行情列表。quotes=[{name,price,change_pct,...}]; 涨=红 跌/平=黑, 名称/现价恒黑。"""
+    cy = _title_bar(d, z, "行情")
+    if not quotes:
+        _center_text(d, z, "无标的 · 去网页添加", _font(18), BLACK)
+        return
+    f = _font(18)
+    row_h = 30
+    max_rows = max(1, (z.y + z.h - cy - 4) // row_h)
+    name_w = z.w * 0.42
+    price_x = z.x + int(z.w * 0.44)
+    for i, q in enumerate(quotes[:max_rows]):
+        y = cy + i * row_h
+        name = q.get("name", "")
+        while name and d.textlength(name, font=f) > name_w:
+            name = name[:-1]
+        d.text((z.x + 6, y), name, fill=BLACK, font=f)
+        d.text((price_x, y), f"{q.get('price', 0):.2f}", fill=BLACK, font=f)
+        pct = q.get("change_pct", 0.0)
+        s = f"{pct:+.2f}%"
+        col = RED if pct > 0 else BLACK
+        pw = d.textlength(s, font=f)
+        d.text((z.x + z.w - pw - 6, y), s, fill=col, font=f)
