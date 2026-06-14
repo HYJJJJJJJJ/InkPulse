@@ -21,6 +21,7 @@ class Config:
     weather_lat: Optional[float] = None
     weather_lon: Optional[float] = None
     weather_place: str = ""
+    events_store: str = os.path.expanduser("~/inkpulse/events.json")
     runtime_store: str = os.path.expanduser("~/inkpulse/runtime.json")
     layouts_store: str = os.path.expanduser("~/inkpulse/layouts.json")
     layout: list[str] = field(default_factory=lambda: list(DEFAULT_LAYOUT))
@@ -49,6 +50,7 @@ def load_config(path: Optional[str]) -> Config:
     cfg.habits_store = os.path.expanduser(sources.get("habits_store", cfg.habits_store))
     cfg.env_history_store = os.path.expanduser(sources.get("env_history_store", cfg.env_history_store))
     cfg.weather_cache = os.path.expanduser(sources.get("weather_cache", cfg.weather_cache))
+    cfg.events_store = os.path.expanduser(sources.get("events_store", cfg.events_store))
     cfg.runtime_store = os.path.expanduser(sources.get("runtime_store", cfg.runtime_store))
     cfg.layouts_store = os.path.expanduser(sources.get("layouts_store", cfg.layouts_store))
     layout = data.get("layout", {})

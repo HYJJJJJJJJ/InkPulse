@@ -50,6 +50,14 @@ def test_env_history_store_default_and_override(tmp_path):
     assert load_config(str(p)).env_history_store == "/tmp/e.json"
 
 
+def test_events_store_default_and_override(tmp_path):
+    from inkpulse_hub.config import Config, load_config
+    assert Config().events_store.endswith("inkpulse/events.json")
+    p = tmp_path / "c.yaml"
+    p.write_text("sources:\n  events_store: /tmp/ev.json\n", encoding="utf-8")
+    assert load_config(str(p)).events_store == "/tmp/ev.json"
+
+
 def test_weather_config_fields(tmp_path):
     from inkpulse_hub.config import Config, load_config, RUNTIME_FIELDS, save_runtime, load_runtime
     c = Config()
