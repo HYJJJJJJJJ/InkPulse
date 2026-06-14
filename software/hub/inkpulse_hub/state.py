@@ -6,6 +6,7 @@ import cnlunar
 from .config import Config
 from .models import ClaudeStatus
 from .collectors.todos import TodoStore
+from .collectors.habits import HabitStore
 from .collectors.usage import collect_usage, collect_daily_usage, collect_project_usage
 from .collectors.photos import pick_photo
 
@@ -33,6 +34,7 @@ class HubState:
         self.cfg = cfg
         self.claude = ClaudeStatus()
         self.todos = TodoStore(cfg.todos_store)
+        self.habits = HabitStore(cfg.habits_store)
         self.env = {"temp": None, "humidity": None, "rssi": None}
 
     def set_claude_status(self, state: str, project: Optional[str] = None) -> None:
@@ -51,6 +53,7 @@ class HubState:
 
     def build_render_state(self, now: Optional[float] = None) -> dict:
         now = now if now is not None else time.time()
+        habits, habit_today_idx = self.habits.week_view(now)
         return {
             "claude": self.claude,
             "usage": collect_usage(
@@ -65,5 +68,7 @@ class HubState:
             "usage_daily": collect_daily_usage(self.cfg.claude_logs),
             "usage_projects": collect_project_usage(self.cfg.claude_logs),
             "lunar": lunar_info(now),
+            "habits": habits,
+            "habit_today_idx": habit_today_idx,
             "now": now,
         }
