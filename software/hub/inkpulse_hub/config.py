@@ -17,6 +17,10 @@ class Config:
     todos_store: str = os.path.expanduser("~/inkpulse/todos.json")
     habits_store: str = os.path.expanduser("~/inkpulse/habits.json")
     env_history_store: str = os.path.expanduser("~/inkpulse/env_history.json")
+    weather_cache: str = os.path.expanduser("~/inkpulse/weather_cache.json")
+    weather_lat: Optional[float] = None
+    weather_lon: Optional[float] = None
+    weather_place: str = ""
     runtime_store: str = os.path.expanduser("~/inkpulse/runtime.json")
     layouts_store: str = os.path.expanduser("~/inkpulse/layouts.json")
     layout: list[str] = field(default_factory=lambda: list(DEFAULT_LAYOUT))
@@ -44,6 +48,7 @@ def load_config(path: Optional[str]) -> Config:
     cfg.todos_store = os.path.expanduser(sources.get("todos_store", cfg.todos_store))
     cfg.habits_store = os.path.expanduser(sources.get("habits_store", cfg.habits_store))
     cfg.env_history_store = os.path.expanduser(sources.get("env_history_store", cfg.env_history_store))
+    cfg.weather_cache = os.path.expanduser(sources.get("weather_cache", cfg.weather_cache))
     cfg.runtime_store = os.path.expanduser(sources.get("runtime_store", cfg.runtime_store))
     cfg.layouts_store = os.path.expanduser(sources.get("layouts_store", cfg.layouts_store))
     layout = data.get("layout", {})
@@ -59,6 +64,7 @@ def load_config(path: Optional[str]) -> Config:
 RUNTIME_FIELDS = [
     "layout_name", "usage_budget_usd", "usage_window_token_limit", "refresh_periodic_s",
     "photo_pinned",
+    "weather_lat", "weather_lon", "weather_place",
 ]
 
 

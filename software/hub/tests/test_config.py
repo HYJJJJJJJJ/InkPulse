@@ -48,3 +48,20 @@ def test_env_history_store_default_and_override(tmp_path):
     p = tmp_path / "c.yaml"
     p.write_text("sources:\n  env_history_store: /tmp/e.json\n", encoding="utf-8")
     assert load_config(str(p)).env_history_store == "/tmp/e.json"
+
+
+def test_weather_config_fields(tmp_path):
+    from inkpulse_hub.config import Config, load_config, RUNTIME_FIELDS, save_runtime, load_runtime
+    c = Config()
+    assert c.weather_cache.endswith("inkpulse/weather_cache.json")
+    assert c.weather_lat is None and c.weather_lon is None and c.weather_place == ""
+    assert {"weather_lat", "weather_lon", "weather_place"} <= set(RUNTIME_FIELDS)
+    p = tmp_path / "c.yaml"
+    p.write_text("sources:\n  weather_cache: /tmp/w.json\n", encoding="utf-8")
+    assert load_config(str(p)).weather_cache == "/tmp/w.json"
+    c.weather_lat, c.weather_lon, c.weather_place = 30.29, 120.16, "杭州"
+    rt = tmp_path / "rt.json"
+    save_runtime(c, str(rt))
+    c2 = Config()
+    load_runtime(c2, str(rt))
+    assert c2.weather_place == "杭州" and c2.weather_lat == 30.29
