@@ -104,6 +104,16 @@
     </div>
   </div>
 
+  <div class="card">
+    <h2>天气地点</h2>
+    <div id="weatherLoc" class="hint">加载中…</div>
+    <div class="row" style="margin-top:12px">
+      <input id="weatherQuery" placeholder="搜索城市,如 杭州" onkeydown="if(event.key==='Enter')searchWeather()">
+      <button onclick="searchWeather()">搜索</button>
+    </div>
+    <div id="weatherResults"></div>
+  </div>
+
 </div>
 <script>
 const NAMES={dash:'仪表盘',photo:'相框',usage:'用量',todo:'待办',clock:'摆钟',split:'双栏'};
@@ -135,6 +145,7 @@ async function load(){
   loadPhotos();
   loadTodos();
   loadHabits();
+  loadWeatherLoc();
 }
 
 function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -356,6 +367,32 @@ async function toggleHabit(id,date){
 }
 async function delHabit(id){
   await fetch('/api/habits/'+id,{method:'DELETE'});loadHabits();setTimeout(refreshPreview,300);
+}
+async function loadWeatherLoc(){
+  const w=await (await fetch('/api/weather')).json();
+  const box=document.getElementById('weatherLoc');
+  if(w.place){
+    box.innerHTML=`<div class="row"><span style="flex:1">当前:${esc(w.place)}</span><button class="ghost" onclick="clearWeather()">清除</button></div>`;
+  }else{
+    box.innerHTML='<div class="hint">未设置地点</div>';
+  }
+}
+async function searchWeather(){
+  const q=document.getElementById('weatherQuery').value.trim();if(!q)return;
+  const list=await (await fetch('/api/weather/search?q='+encodeURIComponent(q))).json();
+  const box=document.getElementById('weatherResults');box.innerHTML='';
+  if(!list.length){box.innerHTML='<div class="hint">没找到</div>';return;}
+  list.forEach(r=>box.insertAdjacentHTML('beforeend',
+    `<div class="row"><span style="flex:1">${esc(r.name)} · ${esc(r.admin||'')}</span><button onclick='pickWeather(${r.lat},${r.lon},${JSON.stringify(r.name)})'>选择</button></div>`));
+}
+async function pickWeather(lat,lon,name){
+  await fetch('/api/weather/location',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat,lon,name})});
+  document.getElementById('weatherResults').innerHTML='';
+  document.getElementById('weatherQuery').value='';
+  loadWeatherLoc();setTimeout(refreshPreview,300);
+}
+async function clearWeather(){
+  await fetch('/api/weather/location',{method:'DELETE'});loadWeatherLoc();setTimeout(refreshPreview,300);
 }
 </script>
 </body>
