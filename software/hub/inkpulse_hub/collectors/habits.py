@@ -1,4 +1,6 @@
 # inkpulse_hub/collectors/habits.py
+from __future__ import annotations
+
 import json
 import os
 import time
@@ -55,3 +57,26 @@ class HabitStore:
             if hid in day:
                 day.remove(hid)
         self._write(data)
+
+    def toggle(self, hid: str, date_iso: str) -> None:
+        data = self._read()
+        day = data["log"].setdefault(date_iso, [])
+        if hid in day:
+            day.remove(hid)
+        else:
+            day.append(hid)
+        self._write(data)
+
+    def is_done(self, hid: str, date_iso: str) -> bool:
+        return hid in self._read()["log"].get(date_iso, [])
+
+    def week_view(self, now: float) -> tuple[list[dict], int]:
+        dates, today_idx = week_dates(now)
+        data = self._read()
+        log = data["log"]
+        rows = [
+            {"name": h["name"],
+             "days": [h["id"] in log.get(dt, []) for dt in dates]}
+            for h in data["habits"]
+        ]
+        return rows, today_idx
