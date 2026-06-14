@@ -8,6 +8,7 @@ from .models import ClaudeStatus
 from .collectors.todos import TodoStore
 from .collectors.habits import HabitStore
 from .collectors.env_history import EnvHistoryStore
+from .collectors.weather import WeatherService
 from .collectors.usage import collect_usage, collect_daily_usage, collect_project_usage
 from .collectors.photos import pick_photo
 
@@ -37,6 +38,7 @@ class HubState:
         self.todos = TodoStore(cfg.todos_store)
         self.habits = HabitStore(cfg.habits_store)
         self.env_history = EnvHistoryStore(cfg.env_history_store)
+        self.weather = WeatherService(cfg.weather_cache)
         self.env = {"temp": None, "humidity": None, "rssi": None}
 
     def set_claude_status(self, state: str, project: Optional[str] = None) -> None:
@@ -55,6 +57,13 @@ class HubState:
 
     def build_render_state(self, now: Optional[float] = None) -> dict:
         now = now if now is not None else time.time()
+        lat, lon = self.cfg.weather_lat, self.cfg.weather_lon
+        if lat is not None and lon is not None:
+            self.weather.maybe_refresh(lat, lon, now)
+            weather = self.weather.current(now)
+            weather_place = self.cfg.weather_place or None
+        else:
+            weather, weather_place = None, None
         habits, habit_today_idx = self.habits.week_view(now)
         return {
             "claude": self.claude,
@@ -73,5 +82,7 @@ class HubState:
             "habits": habits,
             "habit_today_idx": habit_today_idx,
             "env_history": self.env_history.window(now),
+            "weather": weather,
+            "weather_place": weather_place,
             "now": now,
         }
