@@ -26,6 +26,8 @@ def _state():
                     "today_hi": 26.0, "today_lo": 18.0, "age_s": 600, "status": "ok",
                     "days": [{"label": "明", "cn": "晴", "cat": "sun", "hi": 27.0, "lo": 19.0}]},
         "weather_place": "杭州",
+        "market": [{"type": "cn", "code": "sh000001", "name": "上证指数",
+                    "price": 4031.51, "change_pct": 1.12}],
     }
 
 
@@ -39,7 +41,8 @@ def _img():
 def test_existing_widgets_registered():
     expected = {"header", "claude_status", "usage", "usage_ring",
                 "todos", "big_clock", "calendar", "photo",
-                "usage_trend", "project_dist", "habits", "temp_trend", "weather", "agenda"}
+                "usage_trend", "project_dist", "habits", "temp_trend", "weather",
+                "agenda", "market"}
     assert expected <= set(REGISTRY)
     for name in expected:
         assert isinstance(REGISTRY[name], WidgetSpec)

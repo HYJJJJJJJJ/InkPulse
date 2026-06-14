@@ -73,3 +73,20 @@ def test_weather_config_fields(tmp_path):
     c2 = Config()
     load_runtime(c2, str(rt))
     assert c2.weather_place == "杭州" and c2.weather_lat == 30.29
+
+
+def test_market_config_fields(tmp_path):
+    from inkpulse_hub.config import Config, load_config, RUNTIME_FIELDS, save_runtime, load_runtime
+    c = Config()
+    assert c.market_cache.endswith("inkpulse/market_cache.json")
+    assert c.market_symbols == []
+    assert "market_symbols" in RUNTIME_FIELDS
+    p = tmp_path / "c.yaml"
+    p.write_text("sources:\n  market_cache: /tmp/m.json\n", encoding="utf-8")
+    assert load_config(str(p)).market_cache == "/tmp/m.json"
+    c.market_symbols = [{"type": "cn", "code": "sh000001"}]
+    rt = tmp_path / "rt.json"
+    save_runtime(c, str(rt))
+    c2 = Config()
+    load_runtime(c2, str(rt))
+    assert c2.market_symbols == [{"type": "cn", "code": "sh000001"}]

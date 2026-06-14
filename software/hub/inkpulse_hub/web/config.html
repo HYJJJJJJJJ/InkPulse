@@ -125,6 +125,16 @@
     </div>
   </div>
 
+  <div class="card">
+    <h2>行情</h2>
+    <div id="market"></div>
+    <div class="row" style="margin-top:12px">
+      <select id="mkType"><option value="cn">A股/指数</option><option value="crypto">加密</option></select>
+      <input id="mkCode" placeholder="代码:sh000001 / sh600519 / BTC-USDT" style="flex:1">
+      <button onclick="addMarket()">添加</button>
+    </div>
+  </div>
+
 </div>
 <script>
 const NAMES={dash:'仪表盘',photo:'相框',usage:'用量',todo:'待办',clock:'摆钟',split:'双栏'};
@@ -158,6 +168,7 @@ async function load(){
   loadHabits();
   loadWeatherLoc();
   loadEvents();
+  loadMarket();
 }
 
 function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -423,6 +434,25 @@ async function addEvent(){
 }
 async function delEvent(id){
   await fetch('/api/events/'+id,{method:'DELETE'});loadEvents();setTimeout(refreshPreview,300);
+}
+const MKT_LABEL={cn:'A股/指数',crypto:'加密'};
+async function loadMarket(){
+  const list=await (await fetch('/api/market/symbols')).json();
+  const box=document.getElementById('market');box.innerHTML='';
+  if(!list.length){box.innerHTML='<div class="hint">还没有标的</div>';return;}
+  list.forEach(s=>box.insertAdjacentHTML('beforeend',
+    `<div class="row"><span style="flex:1">${MKT_LABEL[s.type]||s.type} · ${esc(s.code)}</span><button class="ghost" onclick="delMarket('${s.type}','${esc(s.code)}')">×</button></div>`));
+}
+async function addMarket(){
+  const type=document.getElementById('mkType').value, ci=document.getElementById('mkCode');
+  const code=ci.value.trim();if(!code){alert('请填代码');return;}
+  const r=await fetch('/api/market/symbols',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,code})});
+  if(!r.ok){alert('添加失败(检查类型/代码)');return;}
+  ci.value='';loadMarket();setTimeout(refreshPreview,300);
+}
+async function delMarket(type,code){
+  await fetch('/api/market/symbols',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,code})});
+  loadMarket();setTimeout(refreshPreview,300);
 }
 </script>
 </body>
