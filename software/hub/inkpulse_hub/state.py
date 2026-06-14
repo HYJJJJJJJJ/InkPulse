@@ -9,6 +9,7 @@ from .collectors.todos import TodoStore
 from .collectors.habits import HabitStore
 from .collectors.env_history import EnvHistoryStore
 from .collectors.weather import WeatherService
+from .collectors.events import EventStore, AGENDA_LIMIT
 from .collectors.usage import collect_usage, collect_daily_usage, collect_project_usage
 from .collectors.photos import pick_photo
 
@@ -39,6 +40,7 @@ class HubState:
         self.habits = HabitStore(cfg.habits_store)
         self.env_history = EnvHistoryStore(cfg.env_history_store)
         self.weather = WeatherService(cfg.weather_cache)
+        self.events = EventStore(cfg.events_store)
         self.env = {"temp": None, "humidity": None, "rssi": None}
 
     def set_claude_status(self, state: str, project: Optional[str] = None) -> None:
@@ -84,5 +86,6 @@ class HubState:
             "env_history": self.env_history.window(now),
             "weather": weather,
             "weather_place": weather_place,
+            "events": self.events.upcoming(now, AGENDA_LIMIT),
             "now": now,
         }

@@ -51,6 +51,20 @@ def test_render_state_weather_none_without_location(tmp_path):
     assert state["weather"] is None and state["weather_place"] is None
 
 
+def test_render_state_has_events(tmp_path):
+    cfg = Config()
+    cfg.claude_logs = str(tmp_path / "logs")
+    cfg.todos_store = str(tmp_path / "todos.json")
+    cfg.photos_dir = str(tmp_path / "photos")
+    cfg.habits_store = str(tmp_path / "habits.json")
+    cfg.env_history_store = str(tmp_path / "env.json")
+    cfg.weather_cache = str(tmp_path / "w.json")
+    cfg.events_store = str(tmp_path / "events.json")
+    st = HubState(cfg)
+    state = st.build_render_state(now=1718000000.0)
+    assert "events" in state and isinstance(state["events"], list)
+
+
 def test_render_state_weather_from_fresh_cache(tmp_path):
     import json
     now = 1718000000.0
