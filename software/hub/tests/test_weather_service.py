@@ -57,6 +57,15 @@ def test_clear_removes_cache(tmp_path):
     assert s.current(NOW) is None
 
 
+def test_current_returns_none_on_malformed_cache(tmp_path):
+    import json
+    p = tmp_path / "wcache.json"
+    # 结构合法的 JSON + 有 "raw", 但 raw 缺 parse_weather 需要的字段, 且无 fetched_at
+    p.write_text(json.dumps({"raw": {"bogus": 1}}), encoding="utf-8")
+    s = WeatherService(str(p))
+    assert s.current(NOW) is None      # 不抛, 降级
+
+
 def test_maybe_refresh_noop_when_fresh(tmp_path):
     s = _svc(tmp_path)
     s.refresh_now(30.29, 120.16, NOW, fetch=lambda lat, lon: SAMPLE_RAW)

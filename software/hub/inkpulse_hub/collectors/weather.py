@@ -125,10 +125,13 @@ class WeatherService:
         c = self._read_cache()
         if c is None:
             return None
-        data = parse_weather(c["raw"], now)
-        data["age_s"] = now - c["fetched_at"]
-        data["status"] = "stale" if is_stale(c["fetched_at"], now) else "ok"
-        return data
+        try:
+            data = parse_weather(c["raw"], now)
+            data["age_s"] = now - c["fetched_at"]
+            data["status"] = "stale" if is_stale(c["fetched_at"], now) else "ok"
+            return data
+        except (KeyError, TypeError, ValueError, IndexError):
+            return None
 
     def clear(self):
         try:
