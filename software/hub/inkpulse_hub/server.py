@@ -25,6 +25,8 @@ def create_app(cfg: Config) -> FastAPI:
               rssi: int | None = None):
         if t is not None or h is not None or rssi is not None:
             state.set_env(t, h, rssi)
+        if t is not None:
+            state.env_history.append(time.time(), t)
         f = render_frame(cfg, state.build_render_state())
         if request.headers.get("if-none-match") == f.etag:
             return Response(status_code=304)

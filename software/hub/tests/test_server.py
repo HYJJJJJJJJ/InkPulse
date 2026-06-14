@@ -43,3 +43,26 @@ def test_ingest_claude_status_updates_frame(tmp_path):
     assert c.post("/ingest/claude-status", json={"state": "error", "project": "X"}).json()["ok"]
     after = c.get("/frame").headers["etag"]
     assert before != after
+
+
+def _app_env(tmp_path):
+    cfg = Config(claude_logs=str(tmp_path / "l"),
+                 photos_dir=str(tmp_path / "p"),
+                 todos_store=str(tmp_path / "todos.json"),
+                 env_history_store=str(tmp_path / "env.json"))
+    return create_app(cfg)
+
+
+def test_frame_with_temp_records_history(tmp_path):
+    import time
+    app = _app_env(tmp_path)
+    TestClient(app).get("/frame", params={"t": 23.4})
+    hist = app.state.hub.env_history.window(time.time())
+    assert len(hist) == 1 and hist[0][1] == 23.4
+
+
+def test_frame_without_temp_records_nothing(tmp_path):
+    import time
+    app = _app_env(tmp_path)
+    TestClient(app).get("/frame", params={"rssi": -55})
+    assert app.state.hub.env_history.window(time.time()) == []
