@@ -114,6 +114,17 @@
     <div id="weatherResults"></div>
   </div>
 
+  <div class="card">
+    <h2>日程</h2>
+    <div id="events"></div>
+    <div class="row" style="margin-top:12px">
+      <input id="evTitle" placeholder="日程标题..." style="flex:2">
+      <input id="evDate" type="date" style="flex:1">
+      <input id="evTime" type="time" style="flex:1">
+      <button onclick="addEvent()">添加</button>
+    </div>
+  </div>
+
 </div>
 <script>
 const NAMES={dash:'仪表盘',photo:'相框',usage:'用量',todo:'待办',clock:'摆钟',split:'双栏'};
@@ -146,6 +157,7 @@ async function load(){
   loadTodos();
   loadHabits();
   loadWeatherLoc();
+  loadEvents();
 }
 
 function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -393,6 +405,24 @@ async function pickWeather(lat,lon,name){
 }
 async function clearWeather(){
   await fetch('/api/weather/location',{method:'DELETE'});loadWeatherLoc();setTimeout(refreshPreview,300);
+}
+async function loadEvents(){
+  const list=await (await fetch('/api/events')).json();
+  const box=document.getElementById('events');box.innerHTML='';
+  if(!list.length){box.innerHTML='<div class="hint">还没有日程</div>';return;}
+  list.forEach(e=>box.insertAdjacentHTML('beforeend',
+    `<div class="row"><span style="flex:1">${esc(e.date)} ${esc(e.time||'全天')} · ${esc(e.title)}</span><button class="ghost" onclick="delEvent('${e.id}')">×</button></div>`));
+}
+async function addEvent(){
+  const t=document.getElementById('evTitle'), dt=document.getElementById('evDate'), tm=document.getElementById('evTime');
+  const title=t.value.trim(), date=dt.value, time=tm.value;
+  if(!title||!date){alert('请填标题和日期');return;}
+  const r=await fetch('/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,date,time})});
+  if(!r.ok){alert('添加失败(检查日期/时间格式)');return;}
+  t.value='';tm.value='';loadEvents();setTimeout(refreshPreview,300);
+}
+async function delEvent(id){
+  await fetch('/api/events/'+id,{method:'DELETE'});loadEvents();setTimeout(refreshPreview,300);
 }
 </script>
 </body>

@@ -573,3 +573,38 @@ def draw_weather(d: ImageDraw.ImageDraw, z: Zone, weather, place) -> None:
     aw = d.textlength(age, font=_font(12))
     d.text((body.x + body.w - aw - 4, body.y + body.h - 14), age,
            fill=BLACK, font=_font(12))
+
+
+def draw_agenda(d: ImageDraw.ImageDraw, z: Zone, events, now) -> None:
+    """近期日程列表。events=[{"title","date","time"}, ...] 已升序; now 用于今天/明天标签。纯黑。"""
+    import datetime as _dt
+    cy = _title_bar(d, z, "日程")
+    if not events:
+        _center_text(d, z, "无日程 · 去网页添加", _font(18), BLACK)
+        return
+    today = _dt.date.fromtimestamp(now)
+    f = _font(18)
+    row_h = 30
+    max_rows = max(1, (z.y + z.h - cy - 4) // row_h)
+    for i, e in enumerate(events[:max_rows]):
+        y = cy + i * row_h
+        try:
+            ed = _dt.date.fromisoformat(e.get("date", ""))
+            delta = (ed - today).days
+            if delta == 0:
+                day = "今天"
+            elif delta == 1:
+                day = "明天"
+            else:
+                day = f"{ed.month}/{ed.day} 周{'一二三四五六日'[ed.weekday()]}"
+        except ValueError:
+            day = e.get("date", "")
+        tm = e.get("time") or "全天"
+        prefix = f"{day} {tm} "
+        d.text((z.x + 6, y), prefix, fill=BLACK, font=f)
+        tx = z.x + 6 + int(d.textlength(prefix, font=f))
+        title = e.get("title", "")
+        avail = z.x + z.w - tx - 6
+        while title and d.textlength(title, font=f) > avail:
+            title = title[:-1]
+        d.text((tx, y), title, fill=BLACK, font=f)
