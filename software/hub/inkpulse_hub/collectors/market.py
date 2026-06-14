@@ -1,4 +1,7 @@
 # inkpulse_hub/collectors/market.py
+import json
+import urllib.request
+
 REFRESH_S = 300   # 行情缓存 5 分钟过期
 
 
@@ -36,3 +39,34 @@ def parse_okx(obj: dict, code: str):
                 "price": last, "change_pct": (last - open24h) / open24h * 100}
     except (KeyError, IndexError, ValueError, TypeError):
         return None
+
+
+TIMEOUT_S = 8
+TENCENT = "https://qt.gtimg.cn/q="
+OKX = "https://www.okx.com/api/v5/market/ticker?instId="
+
+
+def _get_bytes(url: str) -> bytes:
+    with urllib.request.urlopen(url, timeout=TIMEOUT_S) as r:
+        return r.read()
+
+
+def fetch_cn(codes: list) -> list:
+    """批量抓 A股/指数; 返回归一 quote 列表; 单行坏跳过。codes 空 -> []。"""
+    if not codes:
+        return []
+    text = _get_bytes(TENCENT + ",".join(codes)).decode("gbk", "replace")
+    out = []
+    for line in text.strip().splitlines():
+        if "=" not in line:
+            continue
+        q = parse_tencent(line)
+        if q:
+            out.append(q)
+    return out
+
+
+def fetch_crypto(code: str):
+    """抓单个加密标的(OKX); 返回归一 quote 或 None。"""
+    obj = json.loads(_get_bytes(OKX + code).decode("utf-8", "replace"))
+    return parse_okx(obj, code)
