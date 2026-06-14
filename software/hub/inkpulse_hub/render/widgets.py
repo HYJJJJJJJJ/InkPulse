@@ -401,3 +401,45 @@ def draw_qrcode(img: Image.Image, z: Zone, content: str) -> None:
     ox = z.x + (z.w - size) // 2
     oy = z.y + (z.h - size) // 2
     img.paste(q, (ox, oy))
+
+
+def draw_habits(d: ImageDraw.ImageDraw, z: Zone, habits: list, today_idx: int) -> None:
+    """本周(周一→周日)打卡墙。habits=[{"name","days":[bool×7]}], today_idx=今天列(周一=0)。
+    实心方块=已打卡, 空心方块=已过未打, 留空=未来; 今天列额外描边。纯黑, 无红。"""
+    cy = _title_bar(d, z, "习惯打卡")
+    if not habits:
+        _center_text(d, z, "无习惯 · 去网页添加", _font(18), BLACK)
+        return
+    heads = ["一", "二", "三", "四", "五", "六", "日"]
+    name_w = max(60, z.w // 4)                 # 左侧习惯名列宽
+    grid_x = z.x + name_w
+    cw = (z.x + z.w - grid_x - 6) // 7          # 每列宽
+    hf = _font(15)
+    for c, hd in enumerate(heads):             # 星期表头, 与下方格子列对齐
+        d.text((grid_x + c * cw + cw // 2 - 7, cy), hd, fill=BLACK, font=hf)
+    row_y0 = cy + 22
+    avail = z.y + z.h - row_y0 - 4
+    row_h = 30
+    max_rows = max(1, avail // row_h)
+    nf = _font(18)
+    for r, hb in enumerate(habits[:max_rows]):
+        y = row_y0 + r * row_h
+        name = hb["name"]
+        while name and d.textlength(name, font=nf) > name_w - 10:   # 超长截断
+            name = name[:-1]
+        d.text((z.x + 6, y + 4), name, fill=BLACK, font=nf)
+        box = min(cw, row_h) - 12
+        midy = y + row_h // 2
+        for c in range(7):
+            cx = grid_x + c * cw + (cw - box) // 2
+            by = midy - box // 2
+            rect = (cx, by, cx + box, by + box)
+            if c > today_idx:
+                pass                                   # 未来: 留空
+            elif hb["days"][c]:
+                d.rectangle(rect, fill=BLACK)          # ■ 已打卡
+            else:
+                d.rectangle(rect, outline=BLACK)       # □ 已过未打
+            if c == today_idx:                         # 今天列描边强调
+                d.rectangle((cx - 3, by - 3, cx + box + 3, by + box + 3),
+                            outline=BLACK, width=1)
