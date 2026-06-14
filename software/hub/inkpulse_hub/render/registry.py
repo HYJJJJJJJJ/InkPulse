@@ -88,6 +88,10 @@ def _weather(d, img, z, state, cfg, p):
     W.draw_weather(d, z, state.get("weather"), state.get("weather_place"))
 
 
+def _agenda(d, img, z, state, cfg, p):
+    W.draw_agenda(d, z, state.get("events", []), state.get("now"))
+
+
 REGISTRY: dict[str, WidgetSpec] = {
     "header":        WidgetSpec("header", "头部", _header, {"cols": 8, "rows": 1}),
     "claude_status": WidgetSpec("claude_status", "Claude状态", _claude, {"cols": 4, "rows": 3}),
@@ -115,4 +119,5 @@ REGISTRY: dict[str, WidgetSpec] = {
     "habits":        WidgetSpec("habits", "习惯打卡", _habits, {"cols": 4, "rows": 3}),
     "temp_trend":    WidgetSpec("temp_trend", "温度曲线", _temp_trend, {"cols": 4, "rows": 3}),
     "weather":       WidgetSpec("weather", "天气", _weather, {"cols": 3, "rows": 3}),
+    "agenda":        WidgetSpec("agenda", "日程", _agenda, {"cols": 4, "rows": 3}),
 }
