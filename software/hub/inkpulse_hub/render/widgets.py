@@ -488,3 +488,88 @@ def draw_habits(d: ImageDraw.ImageDraw, z: Zone, habits: list, today_idx: int) -
             if c == today_idx:                         # 今天列描边强调
                 d.rectangle((cx - 3, by - 3, cx + box + 3, by + box + 3),
                             outline=BLACK, width=1)
+
+
+def _wx_icon(d: ImageDraw.ImageDraw, cx: int, cy: int, r: int, cat: str) -> None:
+    """7 类天气图标, 纯黑 Pillow 手绘(字体无关)。cx,cy=中心, r=半径基准。"""
+    def cloud(ox, oy, cr):
+        # 三个叠圆 + 平底, 形成一朵云
+        d.ellipse((ox - cr, oy - cr // 2, ox + cr, oy + cr // 2), outline=BLACK, width=2)
+        d.ellipse((ox - cr * 2, oy - cr // 3, ox, oy + cr // 2), outline=BLACK, width=2)
+        d.ellipse((ox, oy - cr // 3, ox + cr * 2, oy + cr // 2), outline=BLACK, width=2)
+
+    if cat == "sun":
+        d.ellipse((cx - r // 2, cy - r // 2, cx + r // 2, cy + r // 2), fill=BLACK)
+        for i in range(8):
+            import math
+            a = i * math.pi / 4
+            x0 = cx + int((r // 2 + 2) * math.cos(a))
+            y0 = cy + int((r // 2 + 2) * math.sin(a))
+            x1 = cx + int(r * math.cos(a))
+            y1 = cy + int(r * math.sin(a))
+            d.line((x0, y0, x1, y1), fill=BLACK, width=2)
+    elif cat == "partly":
+        d.ellipse((cx - r, cy - r, cx - r + r, cy), fill=BLACK)      # 左上小太阳
+        cloud(cx, cy + r // 4, r // 2)
+    elif cat == "cloud":
+        cloud(cx, cy, r // 2)
+    elif cat == "fog":
+        cloud(cx, cy - r // 3, r // 2)
+        for k in range(3):
+            yy = cy + r // 3 + k * 5
+            d.line((cx - r, yy, cx + r, yy), fill=BLACK, width=2)
+    elif cat == "rain":
+        cloud(cx, cy - r // 3, r // 2)
+        for k in range(4):
+            xx = cx - r + k * (r * 2 // 4) + 4
+            d.line((xx, cy + r // 3, xx - 4, cy + r), fill=BLACK, width=2)
+    elif cat == "snow":
+        cloud(cx, cy - r // 3, r // 2)
+        for k in range(3):
+            xx = cx - r // 2 + k * (r // 2)
+            d.ellipse((xx - 2, cy + r // 2 - 2, xx + 2, cy + r // 2 + 2), fill=BLACK)
+    elif cat == "thunder":
+        cloud(cx, cy - r // 3, r // 2)
+        d.line((cx, cy + r // 4, cx - r // 3, cy + r // 2), fill=BLACK, width=2)
+        d.line((cx - r // 3, cy + r // 2, cx + r // 4, cy + r // 2), fill=BLACK, width=2)
+        d.line((cx + r // 4, cy + r // 2, cx - r // 6, cy + r), fill=BLACK, width=2)
+    else:
+        cloud(cx, cy, r // 2)
+
+
+def draw_weather(d: ImageDraw.ImageDraw, z: Zone, weather, place) -> None:
+    """天气 widget。三态由 (place, weather) 区分; 纯黑无红。
+    place=None -> 未设置地点; place 有值且 weather=None -> 加载中; weather 有值 -> 正常。"""
+    cy = _title_bar(d, z, f"天气 · {place}" if place else "天气")
+    body = Zone(z.x, cy, z.w, z.y + z.h - cy)
+    if place is None:
+        _center_text(d, body, "未设置地点 · 去网页添加", _font(16), BLACK)
+        return
+    if weather is None:
+        _center_text(d, body, "加载中…", _font(18), BLACK)
+        return
+    # 当前块: 大图标 + 中文词 + 当前温度大字
+    _wx_icon(d, body.x + 26, body.y + 24, 18, weather["cur_cat"])
+    d.text((body.x + 52, body.y + 4), weather["cur_cn"], fill=BLACK, font=_font(18))
+    big = f"{weather['cur_temp']:.0f}°C"
+    d.text((body.x + 52, body.y + 26), big, fill=BLACK, font=_font(26))
+    d.text((body.x + 4, body.y + 52),
+           f"今日 {weather['today_hi']:.0f}° / {weather['today_lo']:.0f}°",
+           fill=BLACK, font=_font(15))
+    # 分隔线
+    sep_y = body.y + 74
+    d.line((body.x + 4, sep_y, body.x + body.w - 4, sep_y), fill=BLACK, width=1)
+    # 未来 3 天
+    f = _font(15)
+    for i, day in enumerate(weather.get("days", [])[:3]):
+        ry = sep_y + 6 + i * 22
+        d.text((body.x + 4, ry), day["label"], fill=BLACK, font=f)
+        _wx_icon(d, body.x + 52, ry + 8, 8, day["cat"])
+        d.text((body.x + 72, ry), f"{day['hi']:.0f}° / {day['lo']:.0f}°",
+               fill=BLACK, font=f)
+    # 缓存新鲜度(右下)
+    mins = int(weather.get("age_s", 0)) // 60
+    age = f"更新于 {mins} 分钟前"
+    aw = d.textlength(age, font=_font(12))
+    d.text((body.x + body.w - aw - 4, body.y + body.h - 14), age,
+           fill=BLACK, font=_font(12))
