@@ -1,6 +1,8 @@
 # inkpulse_hub/collectors/weather.py
 import datetime as _dt
 import json
+import os
+import threading
 import urllib.parse
 import urllib.request
 
@@ -90,3 +92,77 @@ def geocode(name) -> list:
         out.append({"name": r.get("name", ""), "lat": r.get("latitude"),
                     "lon": r.get("longitude"), "admin": admin})
     return out
+
+
+class WeatherService:
+    """带缓存的天气服务。current() 只读缓存(渲染用, 不触网);
+    maybe_refresh() 过期才起后台线程抓取(不阻塞渲染)。"""
+
+    def __init__(self, cache_path: str):
+        self.cache_path = cache_path
+        os.makedirs(os.path.dirname(os.path.abspath(cache_path)), exist_ok=True)
+        self._lock = threading.Lock()
+        self._refreshing = False
+
+    def _read_cache(self):
+        if not os.path.exists(self.cache_path):
+            return None
+        try:
+            with open(self.cache_path, "r", encoding="utf-8") as f:
+                d = json.load(f)
+            if not isinstance(d, dict) or "raw" not in d:
+                return None
+            return d
+        except (json.JSONDecodeError, ValueError, OSError):
+            return None
+
+    def _write_cache(self, fetched_at, lat, lon, raw):
+        with open(self.cache_path, "w", encoding="utf-8") as f:
+            json.dump({"fetched_at": fetched_at, "lat": lat, "lon": lon, "raw": raw},
+                      f, ensure_ascii=False)
+
+    def current(self, now):
+        c = self._read_cache()
+        if c is None:
+            return None
+        data = parse_weather(c["raw"], now)
+        data["age_s"] = now - c["fetched_at"]
+        data["status"] = "stale" if is_stale(c["fetched_at"], now) else "ok"
+        return data
+
+    def clear(self):
+        try:
+            os.remove(self.cache_path)
+        except OSError:
+            pass
+
+    def _needs_refresh(self, lat, lon, now):
+        c = self._read_cache()
+        return (c is None or c.get("lat") != lat or c.get("lon") != lon
+                or is_stale(c["fetched_at"], now))
+
+    def refresh_now(self, lat, lon, now, fetch=fetch_weather):
+        """同步抓取并写缓存; 失败吞掉记日志、保留旧缓存。供后台线程与测试调用。"""
+        try:
+            raw = fetch(lat, lon)
+            self._write_cache(now, lat, lon, raw)
+        except Exception as e:
+            print(f"[weather] refresh failed: {e}")
+
+    def maybe_refresh(self, lat, lon, now, fetch=fetch_weather):
+        """过期/坐标变更才刷新; 起 daemon 线程, 立即返回(防并发)。"""
+        if not self._needs_refresh(lat, lon, now):
+            return
+        with self._lock:
+            if self._refreshing:
+                return
+            self._refreshing = True
+
+        def _job():
+            try:
+                self.refresh_now(lat, lon, now, fetch)
+            finally:
+                with self._lock:
+                    self._refreshing = False
+
+        threading.Thread(target=_job, daemon=True).start()
