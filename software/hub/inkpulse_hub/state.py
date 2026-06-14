@@ -11,6 +11,7 @@ from .collectors.env_history import EnvHistoryStore
 from .collectors.weather import WeatherService
 from .collectors.events import EventStore, AGENDA_LIMIT
 from .collectors.market import MarketService
+from .collectors.agent_tasks import AgentTaskStore
 from .collectors.usage import collect_usage, collect_daily_usage, collect_project_usage
 from .collectors.photos import pick_photo
 
@@ -43,6 +44,7 @@ class HubState:
         self.weather = WeatherService(cfg.weather_cache)
         self.events = EventStore(cfg.events_store)
         self.market = MarketService(cfg.market_cache)
+        self.agent_tasks = AgentTaskStore(cfg.agent_tasks_store)
         self.env = {"temp": None, "humidity": None, "rssi": None}
 
     def set_claude_status(self, state: str, project: Optional[str] = None) -> None:
@@ -96,5 +98,6 @@ class HubState:
             "weather_place": weather_place,
             "events": self.events.upcoming(now, AGENDA_LIMIT),
             "market": market,
+            "agent_tasks": self.agent_tasks.current(now),
             "now": now,
         }
