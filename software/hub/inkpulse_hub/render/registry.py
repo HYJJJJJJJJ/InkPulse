@@ -84,6 +84,10 @@ def _temp_trend(d, img, z, state, cfg, p):
     W.draw_temp_trend(d, z, state.get("env_history", []), state.get("now"))
 
 
+def _weather(d, img, z, state, cfg, p):
+    W.draw_weather(d, z, state.get("weather"), state.get("weather_place"))
+
+
 REGISTRY: dict[str, WidgetSpec] = {
     "header":        WidgetSpec("header", "头部", _header, {"cols": 8, "rows": 1}),
     "claude_status": WidgetSpec("claude_status", "Claude状态", _claude, {"cols": 4, "rows": 3}),
@@ -110,4 +114,5 @@ REGISTRY: dict[str, WidgetSpec] = {
                       {"value": "cost", "label": "花费$"}]}]),
     "habits":        WidgetSpec("habits", "习惯打卡", _habits, {"cols": 4, "rows": 3}),
     "temp_trend":    WidgetSpec("temp_trend", "温度曲线", _temp_trend, {"cols": 4, "rows": 3}),
+    "weather":       WidgetSpec("weather", "天气", _weather, {"cols": 3, "rows": 3}),
 }
