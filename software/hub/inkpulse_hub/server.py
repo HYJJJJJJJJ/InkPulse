@@ -8,6 +8,7 @@ from .render import layouts as L
 from .render.registry import REGISTRY
 import time
 from .collectors.habits import week_dates
+from .collectors import weather as weather_mod
 
 
 def create_app(cfg: Config) -> FastAPI:
@@ -117,6 +118,36 @@ def create_app(cfg: Config) -> FastAPI:
             return JSONResponse({"error": "future date"}, status_code=400)
         state.habits.toggle(hid, date_iso)
         return {"ok": True}
+
+    @app.get("/api/weather/search")
+    def api_weather_search(q: str = ""):
+        return weather_mod.geocode(q)
+
+    @app.post("/api/weather/location")
+    async def api_weather_set_location(request: Request):
+        data = await request.json()
+        lat, lon, name = data.get("lat"), data.get("lon"), data.get("name")
+        if lat is None or lon is None or not (name or "").strip():
+            return JSONResponse({"error": "lat/lon/name required"}, status_code=400)
+        cfg.weather_lat, cfg.weather_lon, cfg.weather_place = float(lat), float(lon), name.strip()
+        save_runtime(cfg, cfg.runtime_store)
+        state.weather.clear()
+        return {"ok": True}
+
+    @app.delete("/api/weather/location")
+    def api_weather_del_location():
+        cfg.weather_lat, cfg.weather_lon, cfg.weather_place = None, None, ""
+        save_runtime(cfg, cfg.runtime_store)
+        state.weather.clear()
+        return {"ok": True}
+
+    @app.get("/api/weather")
+    def api_weather_get():
+        w = None
+        if cfg.weather_lat is not None and cfg.weather_lon is not None:
+            w = state.weather.current(time.time())
+        return {"place": cfg.weather_place, "lat": cfg.weather_lat,
+                "lon": cfg.weather_lon, "weather": w}
 
     # ---- 配置中心: 选布局 / 调参数 ----
     @app.get("/config", response_class=HTMLResponse)
