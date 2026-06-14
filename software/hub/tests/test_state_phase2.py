@@ -88,3 +88,40 @@ def test_render_state_weather_from_fresh_cache(tmp_path):
     state = st.build_render_state(now=now)
     assert state["weather"]["cur_temp"] == 23.4
     assert state["weather_place"] == "杭州"
+
+
+def test_render_state_market_empty_without_symbols(tmp_path):
+    cfg = Config()
+    cfg.claude_logs = str(tmp_path / "logs")
+    cfg.todos_store = str(tmp_path / "todos.json")
+    cfg.photos_dir = str(tmp_path / "photos")
+    cfg.habits_store = str(tmp_path / "habits.json")
+    cfg.env_history_store = str(tmp_path / "env.json")
+    cfg.weather_cache = str(tmp_path / "w.json")
+    cfg.events_store = str(tmp_path / "events.json")
+    cfg.market_cache = str(tmp_path / "m.json")
+    st = HubState(cfg)
+    state = st.build_render_state(now=1718000000.0)
+    assert state["market"] == []
+
+
+def test_render_state_market_from_fresh_cache(tmp_path):
+    import json
+    now = 1718000000.0
+    quotes = [{"type": "cn", "code": "sh000001", "name": "上证指数", "price": 4031.51, "change_pct": 1.12}]
+    mpath = tmp_path / "m.json"
+    sig = [["cn", "sh000001"]]
+    mpath.write_text(json.dumps({"fetched_at": now, "sig": sig, "quotes": quotes}), encoding="utf-8")
+    cfg = Config()
+    cfg.claude_logs = str(tmp_path / "logs")
+    cfg.todos_store = str(tmp_path / "todos.json")
+    cfg.photos_dir = str(tmp_path / "photos")
+    cfg.habits_store = str(tmp_path / "habits.json")
+    cfg.env_history_store = str(tmp_path / "env.json")
+    cfg.weather_cache = str(tmp_path / "w.json")
+    cfg.events_store = str(tmp_path / "events.json")
+    cfg.market_cache = str(mpath)
+    cfg.market_symbols = [{"type": "cn", "code": "sh000001"}]   # 与缓存 sig 一致 -> 不触发刷新线程
+    st = HubState(cfg)
+    state = st.build_render_state(now=now)
+    assert [q["code"] for q in state["market"]] == ["sh000001"]
