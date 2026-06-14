@@ -6,6 +6,8 @@ from .state import HubState
 from .render.engine import render_frame
 from .render import layouts as L
 from .render.registry import REGISTRY
+import time
+from .collectors.habits import week_dates
 
 
 def create_app(cfg: Config) -> FastAPI:
@@ -78,6 +80,40 @@ def create_app(cfg: Config) -> FastAPI:
     @app.delete("/api/todos/{tid}")
     def api_delete(tid: str):
         state.todos.delete(tid)
+        return {"ok": True}
+
+    # ---- 习惯打卡 API ----
+    @app.get("/api/habits")
+    def api_habits_list():
+        dates, today_idx = week_dates(time.time())
+        habits = state.habits.list()
+        done = {h["id"]: [state.habits.is_done(h["id"], dt) for dt in dates]
+                for h in habits}
+        return {"habits": habits, "week": dates, "done": done, "today_idx": today_idx}
+
+    @app.post("/api/habits")
+    async def api_habits_add(request: Request):
+        data = await request.json()
+        name = (data.get("name") or "").strip()
+        if not name:
+            return JSONResponse({"error": "empty name"}, status_code=400)
+        return state.habits.add(name)
+
+    @app.delete("/api/habits/{hid}")
+    def api_habits_delete(hid: str):
+        state.habits.delete(hid)
+        return {"ok": True}
+
+    @app.post("/api/habits/{hid}/toggle")
+    async def api_habits_toggle(hid: str, request: Request):
+        data = await request.json()
+        date_iso = (data.get("date") or "").strip()
+        if hid not in {h["id"] for h in state.habits.list()}:
+            return JSONResponse({"error": "unknown habit"}, status_code=404)
+        dates, today_idx = week_dates(time.time())
+        if date_iso > dates[today_idx]:        # ISO 串字典序即日期序
+            return JSONResponse({"error": "future date"}, status_code=400)
+        state.habits.toggle(hid, date_iso)
         return {"ok": True}
 
     # ---- 配置中心: 选布局 / 调参数 ----

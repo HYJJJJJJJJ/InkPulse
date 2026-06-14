@@ -32,3 +32,11 @@ def test_layouts_store_default_and_override(tmp_path):
     p.write_text("sources:\n  layouts_store: /tmp/my-layouts.json\n", encoding="utf-8")
     cfg = load_config(str(p))
     assert cfg.layouts_store == "/tmp/my-layouts.json"
+
+
+def test_habits_store_default_and_override(tmp_path):
+    from inkpulse_hub.config import Config, load_config
+    assert Config().habits_store.endswith("inkpulse/habits.json")
+    p = tmp_path / "c.yaml"
+    p.write_text("sources:\n  habits_store: /tmp/h.json\n", encoding="utf-8")
+    assert load_config(str(p)).habits_store == "/tmp/h.json"

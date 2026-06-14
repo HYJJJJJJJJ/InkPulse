@@ -76,6 +76,10 @@ def _project_dist(d, img, z, state, cfg, p):
                         metric=p.get("metric", "tokens"))
 
 
+def _habits(d, img, z, state, cfg, p):
+    W.draw_habits(d, z, state.get("habits", []), state.get("habit_today_idx", 0))
+
+
 REGISTRY: dict[str, WidgetSpec] = {
     "header":        WidgetSpec("header", "头部", _header, {"cols": 8, "rows": 1}),
     "claude_status": WidgetSpec("claude_status", "Claude状态", _claude, {"cols": 4, "rows": 3}),
@@ -100,4 +104,5 @@ REGISTRY: dict[str, WidgetSpec] = {
          {"key": "metric", "label": "度量", "type": "select", "default": "tokens",
           "options": [{"value": "tokens", "label": "Token数"},
                       {"value": "cost", "label": "花费$"}]}]),
+    "habits":        WidgetSpec("habits", "习惯打卡", _habits, {"cols": 4, "rows": 3}),
 }
