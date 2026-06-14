@@ -25,6 +25,9 @@
   .photo img{width:120px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #d4d4d8}
   .photo button{position:absolute;top:2px;right:2px;padding:2px 6px;font-size:12px}
   .hint{font-size:12px;color:#a1a1aa;margin-top:4px}
+  .hcell{width:26px;height:26px;padding:0;margin:0 1px;border:1px solid #d4d4d8;background:#fff;border-radius:4px;cursor:pointer;font-size:12px}
+  .hcell.on{background:#000;color:#fff;border-color:#000}
+  .hcell:disabled{opacity:.35;cursor:not-allowed}
 </style>
 </head>
 <body>
@@ -92,6 +95,15 @@
     </div>
   </div>
 
+  <div class="card">
+    <h2>习惯打卡</h2>
+    <div id="habits"></div>
+    <div class="row" style="margin-top:12px">
+      <input id="habitName" placeholder="新习惯..." onkeydown="if(event.key==='Enter')addHabit()">
+      <button onclick="addHabit()">添加</button>
+    </div>
+  </div>
+
 </div>
 <script>
 const NAMES={dash:'仪表盘',photo:'相框',usage:'用量',todo:'待办',clock:'摆钟',split:'双栏'};
@@ -122,6 +134,7 @@ async function load(){
   curPinned=c.photo_pinned||'';
   loadPhotos();
   loadTodos();
+  loadHabits();
 }
 
 function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -318,6 +331,32 @@ async function edDelete() {
 }
 load();
 edLoad();
+const HWEEK=['一','二','三','四','五','六','日'];
+async function loadHabits(){
+  const data=await (await fetch('/api/habits')).json();
+  const box=document.getElementById('habits');box.innerHTML='';
+  if(!data.habits.length){box.innerHTML='<div class="hint">还没有习惯</div>';return;}
+  data.habits.forEach(h=>{
+    const cells=data.done[h.id].map((on,i)=>{
+      const future=i>data.today_idx;
+      return `<button class="hcell${on?' on':''}" ${future?'disabled':''} title="${data.week[i]}" onclick="toggleHabit('${h.id}','${data.week[i]}')">${HWEEK[i]}</button>`;
+    }).join('');
+    box.insertAdjacentHTML('beforeend',
+      `<div class="row"><span style="flex:1">${esc(h.name)}</span>${cells}<button class="ghost" onclick="delHabit('${h.id}')">×</button></div>`);
+  });
+}
+async function addHabit(){
+  const i=document.getElementById('habitName');const n=i.value.trim();if(!n)return;
+  await fetch('/api/habits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})});
+  i.value='';loadHabits();setTimeout(refreshPreview,300);
+}
+async function toggleHabit(id,date){
+  await fetch('/api/habits/'+id+'/toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date})});
+  loadHabits();setTimeout(refreshPreview,300);
+}
+async function delHabit(id){
+  await fetch('/api/habits/'+id,{method:'DELETE'});loadHabits();setTimeout(refreshPreview,300);
+}
 </script>
 </body>
 </html>
