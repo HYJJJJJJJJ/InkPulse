@@ -1,5 +1,8 @@
 # inkpulse_hub/collectors/weather.py
 import datetime as _dt
+import json
+import urllib.parse
+import urllib.request
 
 REFRESH_S = 1800   # 缓存 30 分钟过期
 
@@ -51,3 +54,39 @@ def parse_weather(raw: dict, now: float) -> dict:
         "today_lo": float(daily["temperature_2m_min"][0]),
         "days": days,
     }
+
+
+OPEN_METEO = "https://api.open-meteo.com/v1/forecast"
+GEOCODE = "https://geocoding-api.open-meteo.com/v1/search"
+TIMEOUT_S = 8
+
+
+def _get_json(url: str) -> dict:
+    with urllib.request.urlopen(url, timeout=TIMEOUT_S) as r:
+        return json.load(r)
+
+
+def fetch_weather(lat, lon) -> dict:
+    q = urllib.parse.urlencode({
+        "latitude": lat, "longitude": lon,
+        "current": "temperature_2m,weather_code",
+        "daily": "weather_code,temperature_2m_max,temperature_2m_min",
+        "timezone": "auto", "forecast_days": 4,
+    })
+    return _get_json(f"{OPEN_METEO}?{q}")
+
+
+def geocode(name) -> list:
+    if not (name or "").strip():
+        return []
+    q = urllib.parse.urlencode({"name": name, "count": 5, "language": "zh"})
+    try:
+        data = _get_json(f"{GEOCODE}?{q}")
+    except Exception:
+        return []
+    out = []
+    for r in (data.get("results") or []):
+        admin = " ".join(x for x in [r.get("country", ""), r.get("admin1", "")] if x)
+        out.append({"name": r.get("name", ""), "lat": r.get("latitude"),
+                    "lon": r.get("longitude"), "admin": admin})
+    return out
