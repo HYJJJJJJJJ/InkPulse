@@ -1,0 +1,17 @@
+[Unit]
+Description=InkPulse Hub (e-ink dashboard server)
+# 网络起来后再启动;0.0.0.0 绑定即便网卡稍晚也能接管, 故用弱依赖 network.target
+After=network.target
+
+[Service]
+Type=simple
+# 以普通用户身份跑(venv 与 ~/inkpulse 数据都在 /home/zqx 下);systemd 会按此用户设好 HOME
+User=zqx
+WorkingDirectory=/home/zqx/workspace/InkPulse/software/hub
+ExecStart=/home/zqx/workspace/InkPulse/software/hub/run.sh
+# 崩溃自动拉起
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
