@@ -40,3 +40,11 @@ def test_habits_store_default_and_override(tmp_path):
     p = tmp_path / "c.yaml"
     p.write_text("sources:\n  habits_store: /tmp/h.json\n", encoding="utf-8")
     assert load_config(str(p)).habits_store == "/tmp/h.json"
+
+
+def test_env_history_store_default_and_override(tmp_path):
+    from inkpulse_hub.config import Config, load_config
+    assert Config().env_history_store.endswith("inkpulse/env_history.json")
+    p = tmp_path / "c.yaml"
+    p.write_text("sources:\n  env_history_store: /tmp/e.json\n", encoding="utf-8")
+    assert load_config(str(p)).env_history_store == "/tmp/e.json"

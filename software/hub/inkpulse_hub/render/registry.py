@@ -80,6 +80,10 @@ def _habits(d, img, z, state, cfg, p):
     W.draw_habits(d, z, state.get("habits", []), state.get("habit_today_idx", 0))
 
 
+def _temp_trend(d, img, z, state, cfg, p):
+    W.draw_temp_trend(d, z, state.get("env_history", []), state.get("now"))
+
+
 REGISTRY: dict[str, WidgetSpec] = {
     "header":        WidgetSpec("header", "头部", _header, {"cols": 8, "rows": 1}),
     "claude_status": WidgetSpec("claude_status", "Claude状态", _claude, {"cols": 4, "rows": 3}),
@@ -105,4 +109,5 @@ REGISTRY: dict[str, WidgetSpec] = {
           "options": [{"value": "tokens", "label": "Token数"},
                       {"value": "cost", "label": "花费$"}]}]),
     "habits":        WidgetSpec("habits", "习惯打卡", _habits, {"cols": 4, "rows": 3}),
+    "temp_trend":    WidgetSpec("temp_trend", "温度曲线", _temp_trend, {"cols": 4, "rows": 3}),
 }

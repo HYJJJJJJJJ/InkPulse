@@ -387,6 +387,51 @@ def draw_project_dist(d: ImageDraw.ImageDraw, z: Zone, projects,
         d.text((bar_x + bw + 4, ry), f"{int(round(frac * 100))}%", fill=BLACK, font=f)
 
 
+def draw_temp_trend(d: ImageDraw.ImageDraw, z: Zone, samples, now) -> None:
+    """近24h 温度折线 + 当前值大数字(右上) + 高/低标记(左下)。
+    samples=[[ts,temp], ...]; 纯黑, 无红。"""
+    cy = _title_bar(d, z, "温度曲线 24h")
+    body = Zone(z.x, cy, z.w, z.y + z.h - cy)
+    pts = sorted(samples or [], key=lambda s: s[0])
+    if len(pts) < 2:
+        _center_text(d, body, "暂无温度数据", _font(18), BLACK)
+        return
+    temps = [p[1] for p in pts]
+    tmin, tmax = min(temps), max(temps)
+    if now is None:
+        now = pts[-1][0]
+    x_lo = now - 86400
+    span = (now - x_lo) or 1
+    pad = 20                                  # 上下留白给大数字/标记
+    chart_top = body.y + pad
+    chart_bot = body.y + body.h - pad
+    chart_h = max(1, chart_bot - chart_top)
+    trange = (tmax - tmin) or 1
+
+    def px(ts):
+        return body.x + int((ts - x_lo) / span * (body.w - 1))
+
+    def py(t):
+        if tmax == tmin:
+            return chart_top + chart_h // 2   # 全等温度 -> 水平中线
+        return chart_bot - int((t - tmin) / trange * chart_h)
+
+    prev = None
+    for p in pts:
+        cur = (px(p[0]), py(p[1]))
+        if prev is not None:
+            d.line((prev[0], prev[1], cur[0], cur[1]), fill=BLACK, width=2)
+        prev = cur
+
+    big = f"{temps[-1]:.0f}°C"                 # 当前值(末点)大数字, 右上
+    bf = _font(28)
+    bw = d.textlength(big, font=bf)
+    d.text((body.x + body.w - bw - 6, body.y + 2), big, fill=BLACK, font=bf)
+
+    mark = f"高 {tmax:.0f}°  低 {tmin:.0f}°"   # 24h 峰谷, 左下(中文字, 不用箭头)
+    d.text((body.x + 4, body.y + body.h - 16), mark, fill=BLACK, font=_font(14))
+
+
 def draw_qrcode(img: Image.Image, z: Zone, content: str) -> None:
     """在 zone 内居中画纯黑白二维码(墨水屏友好)。空内容不画。"""
     import qrcode

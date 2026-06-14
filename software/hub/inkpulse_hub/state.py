@@ -7,6 +7,7 @@ from .config import Config
 from .models import ClaudeStatus
 from .collectors.todos import TodoStore
 from .collectors.habits import HabitStore
+from .collectors.env_history import EnvHistoryStore
 from .collectors.usage import collect_usage, collect_daily_usage, collect_project_usage
 from .collectors.photos import pick_photo
 
@@ -35,6 +36,7 @@ class HubState:
         self.claude = ClaudeStatus()
         self.todos = TodoStore(cfg.todos_store)
         self.habits = HabitStore(cfg.habits_store)
+        self.env_history = EnvHistoryStore(cfg.env_history_store)
         self.env = {"temp": None, "humidity": None, "rssi": None}
 
     def set_claude_status(self, state: str, project: Optional[str] = None) -> None:
@@ -70,5 +72,6 @@ class HubState:
             "lunar": lunar_info(now),
             "habits": habits,
             "habit_today_idx": habit_today_idx,
+            "env_history": self.env_history.window(now),
             "now": now,
         }
