@@ -78,9 +78,7 @@ def fetch_weather(lat, lon) -> dict:
     return _get_json(f"{OPEN_METEO}?{q}")
 
 
-def geocode(name) -> list:
-    if not (name or "").strip():
-        return []
+def _geocode_once(name) -> list:
     q = urllib.parse.urlencode({"name": name, "count": 5, "language": "zh"})
     try:
         data = _get_json(f"{GEOCODE}?{q}")
@@ -91,6 +89,18 @@ def geocode(name) -> list:
         admin = " ".join(x for x in [r.get("country", ""), r.get("admin1", "")] if x)
         out.append({"name": r.get("name", ""), "lat": r.get("latitude"),
                     "lon": r.get("longitude"), "admin": admin})
+    return out
+
+
+def geocode(name) -> list:
+    name = (name or "").strip()
+    if not name:
+        return []
+    out = _geocode_once(name)
+    # Open-Meteo geocoding: 2 字查询仅精确匹配, 3+ 字才模糊匹配。
+    # 很多中文市名的记录带"市"(如"厦门市"), 2 字"厦门"匹配不上 -> 补"市"再试一次。
+    if not out and not name.endswith(("市", "区", "县", "州")):
+        out = _geocode_once(name + "市")
     return out
 
 
