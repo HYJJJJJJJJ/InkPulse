@@ -181,6 +181,44 @@ def create_app(cfg: Config) -> FastAPI:
         state.events.delete(eid)
         return {"ok": True}
 
+    # ---- 行情 widget API ----
+    def _norm_symbol(data):
+        t = data.get("type")
+        code = (data.get("code") or "").strip()
+        if t not in ("cn", "crypto") or not code:
+            return None
+        code = code.lower() if t == "cn" else code.upper()
+        return {"type": t, "code": code}
+
+    @app.get("/api/market")
+    def api_market_get():
+        return {"symbols": cfg.market_symbols, "quotes": state.market.current()}
+
+    @app.get("/api/market/symbols")
+    def api_market_symbols():
+        return cfg.market_symbols
+
+    @app.post("/api/market/symbols")
+    async def api_market_add(request: Request):
+        sym = _norm_symbol(await request.json())
+        if sym is None:
+            return JSONResponse({"error": "invalid symbol"}, status_code=400)
+        if sym not in cfg.market_symbols:
+            cfg.market_symbols = cfg.market_symbols + [sym]
+            save_runtime(cfg, cfg.runtime_store)
+            state.market.clear()
+        return {"ok": True}
+
+    @app.delete("/api/market/symbols")
+    async def api_market_del(request: Request):
+        sym = _norm_symbol(await request.json())
+        if sym is None:
+            return JSONResponse({"error": "invalid symbol"}, status_code=400)
+        cfg.market_symbols = [s for s in cfg.market_symbols if s != sym]
+        save_runtime(cfg, cfg.runtime_store)
+        state.market.clear()
+        return {"ok": True}
+
     # ---- 配置中心: 选布局 / 调参数 ----
     @app.get("/config", response_class=HTMLResponse)
     def config_page():
