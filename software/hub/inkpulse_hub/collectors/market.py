@@ -49,7 +49,8 @@ OKX = "https://www.okx.com/api/v5/market/ticker?instId="
 
 
 def _get_bytes(url: str) -> bytes:
-    with urllib.request.urlopen(url, timeout=TIMEOUT_S) as r:
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:
         return r.read()
 
 

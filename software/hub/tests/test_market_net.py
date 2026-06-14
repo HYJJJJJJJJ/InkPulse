@@ -26,3 +26,17 @@ def test_fetch_crypto_parses(monkeypatch):
         lambda url: json.dumps({"data": [{"last": "1672.7", "open24h": "1674.46"}]}).encode("utf-8"))
     q = M.fetch_crypto("ETH-USDT")
     assert q["type"] == "crypto" and q["name"] == "ETH" and q["price"] == 1672.7
+
+
+def test_get_bytes_sets_user_agent(monkeypatch):
+    captured = {}
+    class _Resp:
+        def read(self): return b"ok"
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    def fake_urlopen(req, timeout=None):
+        captured["ua"] = req.get_header("User-agent")
+        return _Resp()
+    monkeypatch.setattr(M.urllib.request, "urlopen", fake_urlopen)
+    assert M._get_bytes("https://example.com") == b"ok"
+    assert captured["ua"] and "Mozilla" in captured["ua"]
