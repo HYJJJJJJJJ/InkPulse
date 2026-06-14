@@ -17,6 +17,8 @@ def _state():
         "now": 1718000000.0,
         "usage_daily": [{"date": __import__("datetime").date(2026, 6, 13), "tokens": 100, "cost": 0.1}],
         "usage_projects": [{"project": "InkPulse", "tokens": 100, "cost": 0.1}],
+        "habits": [{"name": "运动", "days": [True, False, False, False, False, False, False]}],
+        "habit_today_idx": 1,
     }
 
 
@@ -30,7 +32,7 @@ def _img():
 def test_existing_widgets_registered():
     expected = {"header", "claude_status", "usage", "usage_ring",
                 "todos", "big_clock", "calendar", "photo",
-                "usage_trend", "project_dist"}
+                "usage_trend", "project_dist", "habits"}
     assert expected <= set(REGISTRY)
     for name in expected:
         assert isinstance(REGISTRY[name], WidgetSpec)
