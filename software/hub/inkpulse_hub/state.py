@@ -46,9 +46,30 @@ class HubState:
         self.market = MarketService(cfg.market_cache)
         self.agent_tasks = AgentTaskStore(cfg.agent_tasks_store)
         self.env = {"temp": None, "humidity": None, "rssi": None}
+        # web 同步令牌: 独立于设备 refresh_token, 只驱动网页自动刷新(数据改/配置改/设备拉帧均 bump)
+        self.web_token = 0
+        # 最后送给设备的帧(= 设备此刻物理显示的内容)
+        self.device_frame_png: Optional[bytes] = None
+        self.device_frame_etag: Optional[str] = None
+        self.device_frame_pulled_at: Optional[float] = None
+        self.device_frame_env = {"temp": None, "humidity": None, "rssi": None}
+
+    def bump_web(self) -> int:
+        """递增 web 同步令牌, 供 SSE 通知网页刷新。不影响设备 refresh_token。"""
+        self.web_token += 1
+        return self.web_token
+
+    def record_device_frame(self, png_bytes: bytes, etag: str, now: float) -> None:
+        """记录设备刚拉走的真实帧(非 304), 连同当时 env 快照, 并 bump web 令牌。"""
+        self.device_frame_png = png_bytes
+        self.device_frame_etag = etag
+        self.device_frame_pulled_at = now
+        self.device_frame_env = dict(self.env)
+        self.bump_web()
 
     def set_claude_status(self, state: str, project: Optional[str] = None) -> None:
         self.claude = ClaudeStatus(state=state, project=project, since=time.time())
+        self.bump_web()
 
     def set_env(self, temp, humidity, rssi=None) -> None:
         self.env = {"temp": temp, "humidity": humidity, "rssi": rssi}

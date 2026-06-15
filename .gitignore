@@ -72,3 +72,7 @@ venv/
 
 # ---- CAD 预览渲染图 (由 cad/render_preview.py 生成，可随时重跑，无需入库) ----
 cad/output/*.png
+
+# ---- Web UI (Vue + Vite) ----
+software/hub/web-ui/node_modules/
+software/hub/web-ui/dist/

@@ -10,12 +10,6 @@ def _client(tmp_path):
     return TestClient(create_app(cfg))
 
 
-def test_todos_page_served(tmp_path):
-    r = _client(tmp_path).get("/todos")
-    assert r.status_code == 200
-    assert "text/html" in r.headers["content-type"]
-
-
 def test_todos_crud_api(tmp_path):
     c = _client(tmp_path)
     assert c.get("/api/todos").json() == []

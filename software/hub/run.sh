@@ -44,6 +44,17 @@ if ! "$PY_BIN" -c 'import uvicorn, inkpulse_hub' >/dev/null 2>&1; then
   "$PY_BIN" -m pip install -e .
 fi
 
+# 3.5) 构建 Web UI(Vue+Vite) → web-ui/dist, 供 FastAPI 挂载。幂等: dist 已在则跳过。
+#      没有 npm 时只告警不致命(配置中心页面缺失, 但 API/设备取帧仍正常)。
+if [ ! -f "web-ui/dist/index.html" ]; then
+  if command -v npm >/dev/null 2>&1; then
+    echo "[run] 构建 Web UI (npm ci && npm run build) ..."
+    ( cd web-ui && npm ci && npm run build )
+  else
+    echo "[run] 警告: 未发现 npm, 跳过 Web UI 构建(配置中心页面不可用, API 仍正常)。" >&2
+  fi
+fi
+
 # 4) 选配置: 已设 INKPULSE_CONFIG 则尊重; 否则默认 ~/inkpulse-config.yaml(存在才用)
 if [ -z "${INKPULSE_CONFIG:-}" ] && [ -f "$HOME/inkpulse-config.yaml" ]; then
   export INKPULSE_CONFIG="$HOME/inkpulse-config.yaml"

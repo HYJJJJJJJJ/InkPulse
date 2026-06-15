@@ -1,6 +1,8 @@
 # inkpulse_hub/server.py
+import asyncio
+import json
 from fastapi import FastAPI, Request, Response, UploadFile, File
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from .config import Config, save_runtime, RUNTIME_FIELDS
 from .state import HubState
 from .render.engine import render_frame
@@ -13,11 +15,40 @@ from .collectors.habits import week_dates
 from .collectors import weather as weather_mod
 
 
+async def sse_stream(state: HubState, is_disconnected, *, poll: float = 1.0):
+    """SSE 事件生成器: web 同步令牌变化即推送 data 事件, 否则发心跳维持连接。
+    抽成模块级以便直接单测(不经 TestClient 无限流, 避免死锁)。
+    is_disconnected: 返回 bool 的 async 可调用; poll: 轮询间隔(秒)。"""
+    last = None
+    while True:
+        if await is_disconnected():
+            break
+        tok = state.web_token
+        if tok != last:
+            last = tok
+            payload = {"token": tok, "device_pulled_at": state.device_frame_pulled_at}
+            yield f"data: {json.dumps(payload)}\n\n"
+        else:
+            yield ": keep-alive\n\n"
+        await asyncio.sleep(poll)
+
+
 def create_app(cfg: Config) -> FastAPI:
     app = FastAPI(title="InkPulse Hub")
     state = HubState(cfg)
     app.state.hub = state
     app.state.cfg = cfg
+
+    @app.middleware("http")
+    async def _bump_web_on_write(request: Request, call_next):
+        """任何成功的写请求(配置/数据)都递增 web 同步令牌, 让网页经 SSE 自动刷新。
+        设备 refresh_token 不在此处触碰; /frame(GET) 经 record_device_frame 单独 bump。"""
+        resp = await call_next(request)
+        if request.method in ("POST", "PUT", "DELETE", "PATCH") and 200 <= resp.status_code < 300:
+            p = request.url.path
+            if p.startswith("/api/") or p.startswith("/ingest/"):
+                state.bump_web()
+        return resp
 
     @app.get("/health")
     def health():
@@ -32,7 +63,9 @@ def create_app(cfg: Config) -> FastAPI:
             state.env_history.append(time.time(), t)
         f = render_frame(cfg, state.build_render_state(), get_profile(panel))
         if request.headers.get("if-none-match") == f.etag:
-            return Response(status_code=304)
+            return Response(status_code=304)   # 设备复用缓存, 屏上内容未变, 不更新记录
+        # 设备真正取走了一帧 = 此刻物理显示的内容, 记录下来供网页镜像
+        state.record_device_frame(f.png_bytes, f.etag, time.time())
         return Response(
             content=f.body,
             media_type="application/octet-stream",
@@ -68,16 +101,8 @@ def create_app(cfg: Config) -> FastAPI:
                                  highlights=data.get("highlights"))
         return JSONResponse({"ok": True})
 
-    # ---- 待办 Web UI 与 API ----
+    # ---- 待办 API (页面由 Vue SPA 接管, 见末尾 StaticFiles 挂载) ----
     import os
-    from fastapi.responses import HTMLResponse
-
-    _html_path = os.path.join(os.path.dirname(__file__), "web", "todos.html")
-
-    @app.get("/todos", response_class=HTMLResponse)
-    def todos_page():
-        with open(_html_path, "r", encoding="utf-8") as fh:
-            return HTMLResponse(fh.read())
 
     @app.get("/api/todos")
     def api_list():
@@ -231,13 +256,7 @@ def create_app(cfg: Config) -> FastAPI:
         state.market.clear()
         return {"ok": True}
 
-    # ---- 配置中心: 选布局 / 调参数 ----
-    @app.get("/config", response_class=HTMLResponse)
-    def config_page():
-        cp = os.path.join(os.path.dirname(__file__), "web", "config.html")
-        with open(cp, "r", encoding="utf-8") as fh:
-            return HTMLResponse(fh.read())
-
+    # ---- 配置中心: 选布局 / 调参数 (页面由 Vue SPA 接管) ----
     @app.get("/api/config")
     def api_config_get():
         data = {f: getattr(cfg, f) for f in RUNTIME_FIELDS}
@@ -337,5 +356,44 @@ def create_app(cfg: Config) -> FastAPI:
     @app.get("/api/refresh-token")
     def api_refresh_token():
         return {"token": _refresh["token"]}
+
+    # ---- 真机当前帧镜像: 网页查看设备此刻物理显示的内容 ----
+    @app.get("/api/device/frame.png")
+    def api_device_frame():
+        if state.device_frame_png is not None:
+            return Response(content=state.device_frame_png, media_type="image/png")
+        # 设备尚未拉过帧: 回退到当前预览, 不报错
+        f = render_frame(cfg, state.build_render_state(), get_profile(None))
+        return Response(content=f.png_bytes, media_type="image/png")
+
+    @app.get("/api/device/status")
+    def api_device_status():
+        pulled = state.device_frame_pulled_at
+        env = state.device_frame_env
+        return {
+            "pulled_at": pulled,
+            "age_s": (time.time() - pulled) if pulled is not None else None,
+            "rssi": env.get("rssi"),
+            "temp": env.get("temp"),
+            "humidity": env.get("humidity"),
+            "etag": state.device_frame_etag,
+        }
+
+    # ---- SSE 实时流: web 同步令牌变化即推送, 网页据此自动刷新预览与真机帧 ----
+    @app.get("/api/stream")
+    async def api_stream(request: Request):
+        return StreamingResponse(
+            sse_stream(state, request.is_disconnected),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    # ---- Vue SPA: 挂载 web-ui/dist 到 /, 接管配置中心页面 ----
+    # 必须在所有 /api、/frame、/preview.png、/photos 路由之后挂载(显式路由优先匹配)。
+    # dist 未构建(纯源码 checkout / 测试)时跳过, 开发期走 vite dev server 反代。
+    _dist = os.path.join(os.path.dirname(__file__), "..", "web-ui", "dist")
+    if os.path.isdir(_dist):
+        from fastapi.staticfiles import StaticFiles
+        app.mount("/", StaticFiles(directory=_dist, html=True), name="webui")
 
     return app

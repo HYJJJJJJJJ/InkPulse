@@ -118,12 +118,13 @@ HTU21D：SCL=GPIO2, SDA=GPIO1。
 ```bash
 cd software/hub
 pip install -e ".[dev]"
+( cd web-ui && npm ci && npm run build )           # 构建配置中心前端（或直接用 ./run.sh, 已内置）
 cp config.example.yaml ~/inkpulse-config.yaml      # 按需改 photos/todos 路径
 INKPULSE_CONFIG=~/inkpulse-config.yaml python -m inkpulse_hub
 # 监听 0.0.0.0:8080（INKPULSE_PORT 可改）
 ```
 
-浏览器打开 `http://<本机IP>:8080/preview.png` 即可**无设备**预览仪表盘、调布局。
+浏览器打开 `http://<本机IP>:8080/` 即可进**配置中心**——分区管理待办/日程/行情/天气/照片、可视化布局编辑，常驻「真机当前帧 / 改完预览」面板，改动经 SSE 即时反映。无设备也能用 `/preview.png` 看渲染效果。
 详见 [Hub README](software/hub/README.md)。
 
 ### 2. 烧固件 + 配网（设备端）
