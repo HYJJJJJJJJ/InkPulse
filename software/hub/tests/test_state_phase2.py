@@ -125,3 +125,33 @@ def test_render_state_market_from_fresh_cache(tmp_path):
     st = HubState(cfg)
     state = st.build_render_state(now=now)
     assert [q["code"] for q in state["market"]] == ["sh000001"]
+
+
+def test_render_state_agent_tasks_none_by_default(tmp_path):
+    cfg = Config()
+    cfg.claude_logs = str(tmp_path / "logs")
+    cfg.todos_store = str(tmp_path / "todos.json")
+    cfg.photos_dir = str(tmp_path / "photos")
+    cfg.habits_store = str(tmp_path / "habits.json")
+    cfg.env_history_store = str(tmp_path / "env.json")
+    cfg.weather_cache = str(tmp_path / "w.json")
+    cfg.events_store = str(tmp_path / "events.json")
+    cfg.market_cache = str(tmp_path / "m.json")
+    cfg.agent_tasks_store = str(tmp_path / "at.json")
+    st = HubState(cfg)
+    state = st.build_render_state(now=1718000000.0)
+    assert "agent_tasks" in state and state["agent_tasks"] is None
+
+
+def test_render_state_agent_tasks_present(tmp_path):
+    cfg = Config()
+    for attr, fn in [("claude_logs","logs"),("todos_store","todos.json"),
+                     ("photos_dir","photos"),("habits_store","habits.json"),
+                     ("env_history_store","env.json"),("weather_cache","w.json"),
+                     ("events_store","events.json"),("market_cache","m.json"),
+                     ("agent_tasks_store","at.json")]:
+        setattr(cfg, attr, str(tmp_path / fn))
+    st = HubState(cfg)
+    st.agent_tasks.ingest(1718000000.0, "P", tasks=[{"content":"x","status":"pending"}])
+    state = st.build_render_state(now=1718000000.0)
+    assert state["agent_tasks"]["project"] == "P"

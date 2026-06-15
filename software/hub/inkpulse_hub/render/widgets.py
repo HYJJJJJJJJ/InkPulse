@@ -633,3 +633,46 @@ def draw_market(d: ImageDraw.ImageDraw, z: Zone, quotes) -> None:
         col = RED if pct > 0 else BLACK
         pw = d.textlength(s, font=f)
         d.text((z.x + z.w - pw - 6, y), s, fill=col, font=f)
+
+
+def draw_agent_tasks(d: ImageDraw.ImageDraw, z: Zone, data) -> None:
+    """Claude Code 会话任务镜像。data=current() 返回(含 age_s)或 None。纯黑。"""
+    from ..collectors.agent_tasks import STALE_S
+    project = (data or {}).get("project") or ""
+    cy = _title_bar(d, z, f"工作中 · {project}" if project else "工作中")
+    if not data:
+        _center_text(d, z, "无活动会话", _font(18), BLACK)
+        return
+    f = _font(18)
+    row_h = 28
+    avail_bottom = z.y + z.h - 18           # 给底部新鲜度留行
+    y = cy
+    for t in data.get("tasks", []):
+        if y + row_h > avail_bottom:
+            break
+        st = t.get("status")
+        mark = "■" if st == "in_progress" else ("✓" if st == "completed" else "□")
+        line = f"{mark} {t.get('content','')}"
+        while line and d.textlength(line, font=f) > z.w - 12:
+            line = line[:-1]
+        d.text((z.x + 8, y), line, fill=BLACK, font=f)
+        if st == "completed":                # 完成项删除线
+            w = d.textlength(line, font=f)
+            d.line((z.x + 8, y + 13, z.x + 8 + w, y + 13), fill=BLACK, width=1)
+        y += row_h
+    # highlights(焦点)
+    hs = data.get("highlights", [])
+    if hs and y + row_h <= avail_bottom:
+        for h in hs:
+            if y + row_h > avail_bottom:
+                break
+            line = f"· {h}"
+            while line and d.textlength(line, font=f) > z.w - 12:
+                line = line[:-1]
+            d.text((z.x + 8, y), line, fill=BLACK, font=f)
+            y += row_h
+    # 底部新鲜度
+    age = int((data.get("age_s") or 0))
+    foot = "会话可能已结束" if age > STALE_S else f"活跃于 {age // 60} 分钟前"
+    fw = d.textlength(foot, font=_font(12))
+    d.text((z.x + z.w - fw - 6, z.y + z.h - 14), foot, fill=BLACK, font=_font(12))

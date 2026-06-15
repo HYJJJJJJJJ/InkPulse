@@ -90,3 +90,11 @@ def test_market_config_fields(tmp_path):
     c2 = Config()
     load_runtime(c2, str(rt))
     assert c2.market_symbols == [{"type": "cn", "code": "sh000001"}]
+
+
+def test_agent_tasks_store_default_and_override(tmp_path):
+    from inkpulse_hub.config import Config, load_config
+    assert Config().agent_tasks_store.endswith("inkpulse/agent_tasks.json")
+    p = tmp_path / "c.yaml"
+    p.write_text("sources:\n  agent_tasks_store: /tmp/at.json\n", encoding="utf-8")
+    assert load_config(str(p)).agent_tasks_store == "/tmp/at.json"

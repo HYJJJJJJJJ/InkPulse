@@ -56,6 +56,17 @@ def create_app(cfg: Config) -> FastAPI:
         state.set_claude_status(data.get("state", "idle"), data.get("project"))
         return JSONResponse({"ok": True})
 
+    @app.post("/ingest/agent-tasks")
+    async def ingest_agent_tasks(request: Request):
+        data = await request.json()
+        project = (data.get("project") or "").strip()
+        if not project:
+            return JSONResponse({"error": "project required"}, status_code=400)
+        state.agent_tasks.ingest(time.time(), project,
+                                 tasks=data.get("tasks"),
+                                 highlights=data.get("highlights"))
+        return JSONResponse({"ok": True})
+
     # ---- 待办 Web UI 与 API ----
     import os
     from fastapi.responses import HTMLResponse

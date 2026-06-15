@@ -96,6 +96,10 @@ def _market(d, img, z, state, cfg, p):
     W.draw_market(d, z, state.get("market", []))
 
 
+def _agent_tasks(d, img, z, state, cfg, p):
+    W.draw_agent_tasks(d, z, state.get("agent_tasks"))
+
+
 REGISTRY: dict[str, WidgetSpec] = {
     "header":        WidgetSpec("header", "头部", _header, {"cols": 8, "rows": 1}),
     "claude_status": WidgetSpec("claude_status", "Claude状态", _claude, {"cols": 4, "rows": 3}),
@@ -125,4 +129,5 @@ REGISTRY: dict[str, WidgetSpec] = {
     "weather":       WidgetSpec("weather", "天气", _weather, {"cols": 3, "rows": 3}),
     "agenda":        WidgetSpec("agenda", "日程", _agenda, {"cols": 4, "rows": 3}),
     "market":        WidgetSpec("market", "行情", _market, {"cols": 4, "rows": 3}),
+    "agent_tasks":   WidgetSpec("agent_tasks", "工作任务", _agent_tasks, {"cols": 4, "rows": 3}),
 }
