@@ -10,6 +10,7 @@ typedef struct {
     disp_color_model_t color_model;
     const char *frame_format;   // 如 "bwr-dualplane"
     size_t frame_bytes;
+    const char *panel_id;       // 上报给 hub 的 profile id, 如 "bwr_750"/"bw_426"; 可空
 } display_caps_t;
 
 typedef struct {

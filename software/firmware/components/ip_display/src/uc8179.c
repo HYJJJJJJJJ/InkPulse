@@ -92,6 +92,7 @@ static void disp_get_caps(display_caps_t *out)
     out->color_model = DISP_BWR;
     out->frame_format = "bwr-dualplane";
     out->frame_bytes  = 96000;   // 48000 black + 48000 red
+    out->panel_id     = "bwr_750";
 }
 
 // 内部辅助: 填满一个 plane(供 selftest 调用)
