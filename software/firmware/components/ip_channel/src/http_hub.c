@@ -15,6 +15,7 @@ static const char *TAG = "channel";
 
 // 初始化后保存的帧规格
 static size_t s_frame_bytes = 96000;  // 默认值,init 后覆盖
+static char s_panel_id[24] = "";
 
 // ETag 持久化(跨 fetch 调用)
 static char s_etag[80] = "";
@@ -86,6 +87,9 @@ static esp_err_t ch_init(const display_caps_t *caps)
 {
     if (caps) {
         s_frame_bytes = caps->frame_bytes;
+        if (caps->panel_id && caps->panel_id[0]) {
+            strlcpy(s_panel_id, caps->panel_id, sizeof(s_panel_id));
+        }
     }
     resolve_hub_base();   // 连网后调: 确定 hub base 地址
     return ESP_OK;
@@ -106,8 +110,12 @@ static esp_err_t ch_fetch(uint8_t *buf, size_t buf_len,
     if (esp_wifi_sta_get_rssi(&rssi) == ESP_OK) {
         snprintf(rssi_q, sizeof(rssi_q), "&rssi=%d", rssi);
     }
+    char panel_q[40] = "";
+    if (s_panel_id[0]) {
+        snprintf(panel_q, sizeof(panel_q), "&panel=%s", s_panel_id);
+    }
     char url[256];
-    snprintf(url, sizeof(url), "%s/frame?t=%.1f&h=%.1f%s", s_base, t, h, rssi_q);
+    snprintf(url, sizeof(url), "%s/frame?t=%.1f&h=%.1f%s%s", s_base, t, h, rssi_q, panel_q);
 
     // 重置本次请求临时状态
     s_recv      = 0;
