@@ -33,8 +33,9 @@ const meta = computed(() => {
   const s = status.value || {}
   const bits = []
   if (s.rssi != null) bits.push(`RSSI ${s.rssi}`)
-  if (s.temp != null) bits.push(`${s.temp}°C`)
-  if (s.humidity != null) bits.push(`湿度 ${s.humidity}%`)
+  if (s.temp != null && s.temp > -50 && s.temp < 80) bits.push(`${s.temp}°C`)
+  // 湿度传感器坏时回哨兵值(0 / -100), 只在合理区间显示
+  if (s.humidity != null && s.humidity > 0 && s.humidity <= 100) bits.push(`湿度 ${s.humidity}%`)
   return bits.join(' · ')
 })
 
