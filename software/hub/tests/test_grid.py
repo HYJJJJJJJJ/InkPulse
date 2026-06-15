@@ -24,3 +24,11 @@ def test_adjacent_cells_tile_without_gap():
     left = cell_to_zone(g, {"col": 0, "row": 0, "colspan": 1, "rowspan": 1})
     mid = cell_to_zone(g, {"col": 1, "row": 0, "colspan": 1, "rowspan": 1})
     assert mid.x == left.x + left.w
+
+
+def test_portrait_dims_4x8():
+    g = {"cols": 4, "rows": 8}
+    z = cell_to_zone(g, {"col": 0, "row": 0, "colspan": 4, "rowspan": 1}, 480, 800)
+    assert (z.x, z.y, z.w, z.h) == (0, 0, 480, 100)
+    z2 = cell_to_zone(g, {"col": 0, "row": 0, "colspan": 4, "rowspan": 8}, 480, 800)
+    assert (z2.x, z2.y, z2.w, z2.h) == (0, 0, 480, 800)
