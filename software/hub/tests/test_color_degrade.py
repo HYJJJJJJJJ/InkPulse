@@ -36,3 +36,15 @@ def test_dither_mono_only_bw():
     out = dither_mono(src, (40, 40))
     colors = {out.getpixel((x, y)) for x in range(40) for y in range(40)}
     assert colors <= {(0, 0, 0), (255, 255, 255)}      # 只有黑白
+
+
+def test_header_bw_has_no_red_pixel():
+    from inkpulse_hub.render.widgets import draw_header
+    img, d = _img(800, 60)
+    # 周日 + 含节日, 彩色下本会标红
+    draw_header(d, Zone(0, 0, 800, 60), "2026-01-01 00:00 周四",
+                {"text": "元旦", "festival": "元旦"},
+                22.0, 55.0, -55, accent=BLACK)
+    red = any(img.getpixel((x, y)) == (255, 0, 0)
+              for x in range(800) for y in range(60))
+    assert not red

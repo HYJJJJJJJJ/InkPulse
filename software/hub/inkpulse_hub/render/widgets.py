@@ -216,7 +216,7 @@ def _parse_clock(clock_text: str):
     return hm, date_cn, weekday
 
 
-def draw_header(d: ImageDraw.ImageDraw, z: Zone, clock_text: str, lunar, temp, humidity, rssi=None) -> None:
+def draw_header(d: ImageDraw.ImageDraw, z: Zone, clock_text: str, lunar, temp, humidity, rssi=None, accent=RED) -> None:
     """头部: 左大时间 + 中文日期(周X红) + 农历; 右上温度/湿度/WiFi。
     按 zone 宽度自适应(窄区如 split 用小号), 避免内容互相覆盖。"""
     f2 = _font(18)
@@ -246,19 +246,19 @@ def draw_header(d: ImageDraw.ImageDraw, z: Zone, clock_text: str, lunar, temp, h
         d.text((cx, z.y + 6), date_cn, fill=BLACK, font=sub)
         wx = cx + int(d.textlength(date_cn + " ", font=sub))
         if wx + d.textlength(weekday, font=sub) <= right_limit:
-            d.text((wx, z.y + 6), weekday, fill=RED, font=sub)
-        # 右栏下: 农历(黑) + 节日(红)
+            d.text((wx, z.y + 6), weekday, fill=accent, font=sub)
+        # 右栏下: 农历(黑) + 节日(强调色)
         d.text((cx, ly2), text, fill=BLACK, font=f2)
         if fest:
             d.text((cx + int(d.textlength(text + " · ", font=f2)), ly2),
-                   fest, fill=RED, font=f2)
+                   fest, fill=accent, font=f2)
     else:
         # 兜底: 时钟串格式异常时退回旧式整行
-        d.text((z.x + 6, z.y + 6), clock_text, fill=RED, font=_font(22))
+        d.text((z.x + 6, z.y + 6), clock_text, fill=accent, font=_font(22))
         d.text((z.x + 6, z.y + 42), text, fill=BLACK, font=f2)
         if fest:
             d.text((z.x + 6 + int(d.textlength(text + " · ", font=f2)), z.y + 42),
-                   fest, fill=RED, font=f2)
+                   fest, fill=accent, font=f2)
     d.line((z.x, z.y + z.h - 1, z.x + z.w, z.y + z.h - 1), fill=BLACK, width=1)
 
 

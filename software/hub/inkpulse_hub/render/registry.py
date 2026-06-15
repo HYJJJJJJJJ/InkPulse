@@ -20,7 +20,8 @@ class WidgetSpec:
 def _header(d, img, z, state, cfg, p):
     env = state.get("env", {})
     W.draw_header(d, z, state.get("clock", ""), state.get("lunar"),
-                  env.get("temp"), env.get("humidity"), env.get("rssi"))
+                  env.get("temp"), env.get("humidity"), env.get("rssi"),
+                  accent=W.accent_for(state))
 
 
 def _claude(d, img, z, state, cfg, p):
