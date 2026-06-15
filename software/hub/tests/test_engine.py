@@ -58,3 +58,17 @@ def test_widget_exception_isolated(monkeypatch, tmp_path):
     cfg.layout_name = "炸测"
     f = engine.render_frame(cfg, _state())
     assert len(f.body) == 96000        # 整帧仍出图, 不崩
+
+
+from inkpulse_hub.render.profiles import PROFILES
+
+
+def test_render_bw_426_produces_48000():
+    f = render_frame(_cfg(), _state(), PROFILES["bw_426"])
+    assert len(f.body) == 48000
+    assert f.png_bytes[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_render_default_profile_unchanged():
+    # 不传 profile = bwr_750 = 96000(零回归)
+    assert len(render_frame(_cfg(), _state()).body) == 96000
