@@ -23,3 +23,11 @@ def dither_bwr(src: Image.Image, size: tuple[int, int]) -> Image.Image:
     img.paste(fitted, ((size[0] - fitted.width) // 2, (size[1] - fitted.height) // 2))
     quant = img.quantize(palette=_palette_image(), dither=Image.FLOYDSTEINBERG)
     return quant.convert("RGB")
+
+
+def dither_mono(src: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """等比缩放 + Floyd–Steinberg 抖动到纯黑白, 返回 RGB。BW 屏照片用。"""
+    fitted = ImageOps.contain(src.convert("RGB"), size)
+    img = Image.new("RGB", size, (255, 255, 255))
+    img.paste(fitted, ((size[0] - fitted.width) // 2, (size[1] - fitted.height) // 2))
+    return img.convert("L").convert("1").convert("RGB")

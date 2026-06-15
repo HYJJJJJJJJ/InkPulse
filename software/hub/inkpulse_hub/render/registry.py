@@ -44,7 +44,7 @@ def _big_clock(d, img, z, state, cfg, p):
 
 
 def _calendar(d, img, z, state, cfg, p):
-    W.draw_month_calendar(d, z, state.get("now"))
+    W.draw_month_calendar(d, z, state.get("now"), accent=W.accent_for(state))
 
 
 def _photo(d, img, z, state, cfg, p):
@@ -52,7 +52,9 @@ def _photo(d, img, z, state, cfg, p):
     if photo is None:
         W._center_text(d, z, "无照片", W._font(24), W.BLACK)
         return
-    im = dither_bwr(Image.open(photo.path), (z.w, z.h))
+    from .dither import dither_mono
+    fn = dither_mono if state.get("color") == "bw" else dither_bwr
+    im = fn(Image.open(photo.path), (z.w, z.h))
     img.paste(im, (z.x, z.y))
 
 

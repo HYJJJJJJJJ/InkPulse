@@ -7,6 +7,11 @@ BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 
+
+def accent_for(state) -> tuple:
+    """渲染态颜色模型 -> 强调色。bw 用黑(配合形状区分), 否则用红。"""
+    return BLACK if (state or {}).get("color") == "bw" else RED
+
 STATE_LABEL = {
     "idle": "空闲",
     "working": "工作中",
@@ -169,8 +174,9 @@ def draw_usage_ring(d: ImageDraw.ImageDraw, z: Zone, usage) -> None:
     _center_text(d, z, pct, fp, color)
 
 
-def draw_month_calendar(d: ImageDraw.ImageDraw, z: Zone, now) -> None:
-    """当月月历 7x6 网格 + 今日高亮(红框红字)(clock/split 布局用)。"""
+def draw_month_calendar(d: ImageDraw.ImageDraw, z: Zone, now, accent=RED) -> None:
+    """当月月历 7x6 网格 + 今日高亮(accent 框+字)(clock/split 布局用)。
+    accent=RED 走彩色; accent=BLACK(BW 屏)时额外加内描边框以区分今天。"""
     import time, calendar
     lt = time.localtime(now)
     year, mon, today = lt.tm_year, lt.tm_mon, lt.tm_mday
@@ -186,10 +192,13 @@ def draw_month_calendar(d: ImageDraw.ImageDraw, z: Zone, now) -> None:
             if day == 0:
                 continue
             x, y = z.x + c * cw, z.y + (ri + 1) * ch
-            if day == today:
-                d.rectangle((x + 1, y + 1, x + cw - 2, y + ch - 2), outline=RED, width=2)
+            is_today = day == today
+            if is_today:
+                d.rectangle((x + 1, y + 1, x + cw - 2, y + ch - 2), outline=accent, width=2)
+                if accent == BLACK:   # BW 屏: 再加一圈内描边, 强化"今天"可辨识度
+                    d.rectangle((x + 3, y + 3, x + cw - 4, y + ch - 4), outline=BLACK)
             d.text((x + cw // 3, y + ch // 6), str(day),
-                   fill=(RED if day == today else BLACK), font=f)
+                   fill=(accent if is_today else BLACK), font=f)
 
 
 def _parse_clock(clock_text: str):
