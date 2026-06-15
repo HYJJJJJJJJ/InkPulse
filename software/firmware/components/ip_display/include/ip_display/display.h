@@ -24,3 +24,4 @@ typedef struct {
 } display_if_t;
 
 const display_if_t *uc8179_driver(void);
+const display_if_t *ssd1677_driver(void);
