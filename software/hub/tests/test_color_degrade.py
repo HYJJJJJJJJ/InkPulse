@@ -48,3 +48,32 @@ def test_header_bw_has_no_red_pixel():
     red = any(img.getpixel((x, y)) == (255, 0, 0)
               for x in range(800) for y in range(60))
     assert not red
+
+
+def test_claude_status_bw_no_red():
+    from inkpulse_hub.render.widgets import draw_claude_status
+    from inkpulse_hub.models import ClaudeStatus
+    img, d = _img(300, 200)
+    s = ClaudeStatus(state="error", project="X")   # needs_attention -> would be red
+    draw_claude_status(d, Zone(0, 0, 300, 200), s, None, accent=BLACK)
+    assert not any(img.getpixel((x, y)) == (255, 0, 0)
+                   for x in range(300) for y in range(200))
+
+
+def test_usage_bw_no_red_when_over():
+    from inkpulse_hub.render.widgets import draw_usage
+    from inkpulse_hub.models import Usage
+    img, d = _img(300, 200)
+    u = Usage(input_tokens=5_000_000, output_tokens=5_000_000, window_used_ratio=0.99)
+    draw_usage(d, Zone(0, 0, 300, 200), u, budget_usd=0.01, accent=BLACK)
+    assert not any(img.getpixel((x, y)) == (255, 0, 0)
+                   for x in range(300) for y in range(200))
+
+
+def test_usage_ring_bw_no_red_when_high():
+    from inkpulse_hub.render.widgets import draw_usage_ring
+    from inkpulse_hub.models import Usage
+    img, d = _img(200, 200)
+    draw_usage_ring(d, Zone(0, 0, 200, 200), Usage(window_used_ratio=0.95), accent=BLACK)
+    assert not any(img.getpixel((x, y)) == (255, 0, 0)
+                   for x in range(200) for y in range(200))

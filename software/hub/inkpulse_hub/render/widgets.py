@@ -155,7 +155,7 @@ def draw_big_clock(d: ImageDraw.ImageDraw, z: Zone, now) -> None:
     _center_text(d, z, txt, _font(size), BLACK)
 
 
-def draw_usage_ring(d: ImageDraw.ImageDraw, z: Zone, usage) -> None:
+def draw_usage_ring(d: ImageDraw.ImageDraw, z: Zone, usage, accent=RED) -> None:
     """5h 窗口占用环形进度; ratio>=0.9 标红(usage 布局用)。"""
     ratio = getattr(usage, "window_used_ratio", None)
     cx, cy = z.x + z.w // 2, z.y + z.h // 2
@@ -166,7 +166,7 @@ def draw_usage_ring(d: ImageDraw.ImageDraw, z: Zone, usage) -> None:
     if ratio is None:
         return
     ratio = max(0.0, min(1.0, float(ratio)))
-    color = RED if ratio >= 0.9 else BLACK
+    color = accent if ratio >= 0.9 else BLACK
     end = -90 + int(360 * ratio)
     d.arc((cx - r, cy - r, cx + r, cy + r), -90, end, fill=color, width=10)  # 加粗进度弧
     pct = f"{int(ratio * 100)}%"
@@ -262,11 +262,11 @@ def draw_header(d: ImageDraw.ImageDraw, z: Zone, clock_text: str, lunar, temp, h
     d.line((z.x, z.y + z.h - 1, z.x + z.w, z.y + z.h - 1), fill=BLACK, width=1)
 
 
-def draw_claude_status(d: ImageDraw.ImageDraw, z: Zone, s: ClaudeStatus, now=None) -> None:
+def draw_claude_status(d: ImageDraw.ImageDraw, z: Zone, s: ClaudeStatus, now=None, accent=RED) -> None:
     cy = _title_bar(d, z, "状态")
     big = _font(44)
     small = _font(20)
-    color = RED if s.needs_attention() else BLACK
+    color = accent if s.needs_attention() else BLACK
     # 状态色块: 不依赖字形, 保证状态色可见
     d.rectangle((z.x + 12, cy + 6, z.x + 34, cy + 30), fill=color)
     label = STATE_LABEL.get(s.state, s.state)
@@ -277,14 +277,14 @@ def draw_claude_status(d: ImageDraw.ImageDraw, z: Zone, s: ClaudeStatus, now=Non
     d.text((z.x + 12, cy + 58), line2, fill=BLACK, font=small)
 
 
-def draw_usage(d: ImageDraw.ImageDraw, z: Zone, u: Usage, budget_usd=None) -> None:
+def draw_usage(d: ImageDraw.ImageDraw, z: Zone, u: Usage, budget_usd=None, accent=RED) -> None:
     cy = _title_bar(d, z, "今日用量")
     f = _font(20)
     hero = _font(40)
     d.text((z.x + 8, cy), f"{u.total_tokens()} tokens", fill=BLACK, font=f)
     # hero 花费: 超预算告警红, 否则黑(靠字号强调)
     over = budget_usd is not None and u.cost_usd > budget_usd
-    d.text((z.x + 8, cy + 28), f"${u.cost_usd:.0f}", fill=(RED if over else BLACK), font=hero)
+    d.text((z.x + 8, cy + 28), f"${u.cost_usd:.0f}", fill=(accent if over else BLACK), font=hero)
     by = cy + 84
     if u.window_used_ratio is not None:
         bx, bw, bh = z.x + 8, z.w - 92, 16
@@ -292,7 +292,7 @@ def draw_usage(d: ImageDraw.ImageDraw, z: Zone, u: Usage, budget_usd=None) -> No
         fillw = int(bw * max(0.0, min(1.0, u.window_used_ratio)))
         d.rectangle((bx, by, bx + fillw, by + bh), fill=BLACK)
         pct = int(round(u.window_used_ratio * 100))
-        pcol = RED if u.window_used_ratio > 0.90 else BLACK   # >90% 告警红
+        pcol = accent if u.window_used_ratio > 0.90 else BLACK   # >90% 告警红
         d.text((bx + bw + 6, by - 3), f"{pct}%", fill=pcol, font=f)
     else:
         d.text((z.x + 8, by), "窗口 n/a", fill=BLACK, font=f)

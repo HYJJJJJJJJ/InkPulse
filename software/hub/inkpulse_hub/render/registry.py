@@ -25,15 +25,15 @@ def _header(d, img, z, state, cfg, p):
 
 
 def _claude(d, img, z, state, cfg, p):
-    W.draw_claude_status(d, z, state["claude"], state.get("now"))
+    W.draw_claude_status(d, z, state["claude"], state.get("now"), accent=W.accent_for(state))
 
 
 def _usage(d, img, z, state, cfg, p):
-    W.draw_usage(d, z, state["usage"], cfg.usage_budget_usd)
+    W.draw_usage(d, z, state["usage"], cfg.usage_budget_usd, accent=W.accent_for(state))
 
 
 def _usage_ring(d, img, z, state, cfg, p):
-    W.draw_usage_ring(d, z, state["usage"])
+    W.draw_usage_ring(d, z, state["usage"], accent=W.accent_for(state))
 
 
 def _todos(d, img, z, state, cfg, p):

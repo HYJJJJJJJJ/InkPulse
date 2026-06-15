@@ -29,3 +29,18 @@ def test_all_bw426_layouts_render_48000_and_no_red():
         assert len(f.body) == 48000, f"{name} 帧大小错"
         im = Image.open(io.BytesIO(f.png_bytes)).convert("RGB")
         assert all(px != (255, 0, 0) for px in im.getdata()), f"{name} BW 下不应有红"
+
+
+def test_bw426_layouts_no_red_under_extreme_state():
+    import io
+    from PIL import Image
+    state = _state()
+    state["claude"] = ClaudeStatus(state="error", project="InkPulse")
+    state["usage"] = Usage(input_tokens=5_000_000, output_tokens=5_000_000, window_used_ratio=0.99)
+    names = {"dash", "photo", "clock", "usage", "split", "todo"}
+    for name in names:
+        cfg = Config(); cfg.layouts_store = ""; cfg.layout_name = name
+        f = render_frame(cfg, state, PROFILES["bw_426"])
+        assert len(f.body) == 48000, f"{name} 帧大小错"
+        im = Image.open(io.BytesIO(f.png_bytes)).convert("RGB")
+        assert all(px != (255, 0, 0) for px in im.getdata()), f"{name} 极端态仍漏红"
