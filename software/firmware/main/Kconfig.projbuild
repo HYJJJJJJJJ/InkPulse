@@ -1,0 +1,16 @@
+menu "InkPulse Panel"
+
+choice INKPULSE_PANEL
+    prompt "EPD panel"
+    default PANEL_UC8179_BWR_750
+    help
+        选择物理墨水屏型号(编译期固定, 一块板只焊一块屏)。
+
+    config PANEL_UC8179_BWR_750
+        bool "7.5\" 800x480 BWR (UC8179)"
+
+    config PANEL_SSD1677_BW_426
+        bool "4.2\" 480x800 BW partial-refresh (SSD1677)"
+endchoice
+
+endmenu
