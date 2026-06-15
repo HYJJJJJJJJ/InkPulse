@@ -66,3 +66,26 @@ def test_frame_without_temp_records_nothing(tmp_path):
     app = _app_env(tmp_path)
     TestClient(app).get("/frame", params={"rssi": -55})
     assert app.state.hub.env_history.window(time.time()) == []
+
+
+def test_frame_bw_426_returns_48000(tmp_path):
+    r = _client(tmp_path).get("/frame?panel=bw_426")
+    assert r.status_code == 200
+    assert len(r.content) == 48000
+
+
+def test_frame_default_panel_returns_96000(tmp_path):
+    r = _client(tmp_path).get("/frame")
+    assert r.status_code == 200
+    assert len(r.content) == 96000
+
+
+def test_frame_unknown_panel_falls_back(tmp_path):
+    r = _client(tmp_path).get("/frame?panel=zzz")
+    assert len(r.content) == 96000
+
+
+def test_preview_png_accepts_panel(tmp_path):
+    r = _client(tmp_path).get("/preview.png?panel=bw_426")
+    assert r.status_code == 200
+    assert r.content[:8] == b"\x89PNG\r\n\x1a\n"

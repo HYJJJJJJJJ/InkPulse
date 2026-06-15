@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from .config import Config, save_runtime, RUNTIME_FIELDS
 from .state import HubState
 from .render.engine import render_frame
+from .render.profiles import get_profile
 from .render import layouts as L
 from .render.registry import REGISTRY
 import time
@@ -24,12 +25,12 @@ def create_app(cfg: Config) -> FastAPI:
 
     @app.get("/frame")
     def frame(request: Request, t: float | None = None, h: float | None = None,
-              rssi: int | None = None):
+              rssi: int | None = None, panel: str | None = None):
         if t is not None or h is not None or rssi is not None:
             state.set_env(t, h, rssi)
         if t is not None:
             state.env_history.append(time.time(), t)
-        f = render_frame(cfg, state.build_render_state())
+        f = render_frame(cfg, state.build_render_state(), get_profile(panel))
         if request.headers.get("if-none-match") == f.etag:
             return Response(status_code=304)
         return Response(
@@ -39,8 +40,8 @@ def create_app(cfg: Config) -> FastAPI:
         )
 
     @app.get("/preview.png")
-    def preview():
-        f = render_frame(cfg, state.build_render_state())
+    def preview(panel: str | None = None):
+        f = render_frame(cfg, state.build_render_state(), get_profile(panel))
         return Response(content=f.png_bytes, media_type="image/png")
 
     # ---- 字体验证: 运行时热切换 CJK 字体, 设备下次拉帧即生效 ----
