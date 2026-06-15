@@ -12,5 +12,7 @@
 #define SSD_BW_INVERT   1
 
 // 暴露给 selftest 的内部辅助
-void ssd1677_write_ram(const uint8_t *plane);   // 写 0x24 整屏(48000B 概念帧, bit=1=黑, 内部按极性处理)
+void ssd1677_write_ram(const uint8_t *plane);   // 写 0x24 整屏(48000B 概念帧, bit=1=黑, 内部按极性)
 void ssd1677_update_full(void);                  // 0x22(0xF7)+0x20 全刷 + 等忙
+void ssd1677_ram_begin(void);                    // set RAM counter + 发 0x24, 准备流式写行
+void ssd1677_ram_row(const uint8_t *row);        // 发一行(SSD_ROW_BYTES=100B, bit=1=黑, 内部按极性)

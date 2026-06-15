@@ -63,21 +63,29 @@ static void set_ram_counter(void)
     hal_spi_cmd(0x4F); hal_spi_data(0xDF); hal_spi_data(0x01);   // Y counter=479
 }
 
-// 写 0x24 整屏(plane 是 bit=1=黑 的概念帧, 内部按 SSD_BW_INVERT 处理)
-void ssd1677_write_ram(const uint8_t *plane)
+void ssd1677_ram_begin(void)
 {
     set_ram_counter();
     hal_spi_cmd(0x24);
-    static uint8_t tmp[SSD_ROW_BYTES];
-    for (int y = 0; y < SSD_HEIGHT; y++) {
-        const uint8_t *src = plane + y * SSD_ROW_BYTES;
+}
+
+void ssd1677_ram_row(const uint8_t *row)
+{
 #if SSD_BW_INVERT
-        for (int i = 0; i < SSD_ROW_BYTES; i++) tmp[i] = (uint8_t)~src[i];
-        hal_spi_data_buf(tmp, SSD_ROW_BYTES);
+    static uint8_t tmp[SSD_ROW_BYTES];
+    for (int i = 0; i < SSD_ROW_BYTES; i++) tmp[i] = (uint8_t)~row[i];
+    hal_spi_data_buf(tmp, SSD_ROW_BYTES);
 #else
-        hal_spi_data_buf(src, SSD_ROW_BYTES);
+    hal_spi_data_buf(row, SSD_ROW_BYTES);
 #endif
-    }
+}
+
+// 写 0x24 整屏(plane = caller 提供的 48000B 帧, 不新分配)
+void ssd1677_write_ram(const uint8_t *plane)
+{
+    ssd1677_ram_begin();
+    for (int y = 0; y < SSD_HEIGHT; y++)
+        ssd1677_ram_row(plane + y * SSD_ROW_BYTES);
 }
 
 void ssd1677_update_full(void)
@@ -122,9 +130,10 @@ static void disp_refresh(void) { ssd1677_update_full(); }
 
 static void disp_clear(void)
 {
-    static uint8_t whole[SSD_PLANE_BYTES];
-    memset(whole, 0x00, sizeof(whole));   // bit=1=黑 约定下 0x00=全白
-    ssd1677_write_ram(whole);             // write_ram 会按 SSD_BW_INVERT 取反
+    static uint8_t row[SSD_ROW_BYTES];
+    memset(row, 0x00, sizeof(row));   // bit=0 => 白(经极性取反后发 0xFF=白)
+    ssd1677_ram_begin();
+    for (int y = 0; y < SSD_HEIGHT; y++) ssd1677_ram_row(row);
     ssd1677_update_full();
 }
 
