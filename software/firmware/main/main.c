@@ -40,7 +40,12 @@ void app_main(void)
     }
 
     ESP_LOGI(TAG, "[2] 墨水屏: 初始化 + 白/黑/红/分屏/棋盘");
-    const display_if_t *disp = uc8179_driver();
+    const display_if_t *disp =
+#if CONFIG_PANEL_SSD1677_BW_426
+        ssd1677_driver();
+#else
+        uc8179_driver();
+#endif
     disp->init();
     disp->selftest();
     ESP_LOGI(TAG, "=== 验证结束 ===");
@@ -49,15 +54,28 @@ void app_main(void)
 
 #else  // ---- 联网主循环(默认) ----
 
-// 离线红叉叠加: 在帧 red plane 右上角画/清一个红色 X(WiFi 叉简化, 与 hub 信号格同位)。
-// on=true 画, on=false 清。利用 BWR 红 plane(bit=1 -> 红)。
+// 离线叉: BWR 用红 plane 画红叉; BW 用单 plane 画黑叉。on=画, off=清。
 static void mark_offline(uint8_t *fb, const display_caps_t *c, bool on)
 {
-    int rb = c->width / 8;                  // row bytes (800/8=100)
-    uint8_t *red = fb + c->frame_bytes / 2; // red plane 在后半 (48000)
     const int x0 = 766, y0 = 8, sz = 18;
+    if (c->color_model == DISP_BW) {
+        int rb = 800 / 8;                 // 旋转后单 plane 行字节(800/8=100)
+        uint8_t *plane = fb;              // bit=1=黑
+        for (int i = 0; i <= sz; i++) {
+            for (int w = 0; w < 3; w++) {
+                int yy = y0 + i;
+                int xa = x0 + i + w, xb = x0 + sz - i + w;
+                uint8_t ma = 0x80 >> (xa % 8), mb = 0x80 >> (xb % 8);
+                if (on) { plane[yy*rb + xa/8] |= ma;  plane[yy*rb + xb/8] |= mb; }
+                else    { plane[yy*rb + xa/8] &= ~ma; plane[yy*rb + xb/8] &= ~mb; }
+            }
+        }
+        return;
+    }
+    int rb = c->width / 8;                 // BWR: row bytes (800/8=100)
+    uint8_t *red = fb + c->frame_bytes / 2;
     for (int i = 0; i <= sz; i++) {
-        for (int w = 0; w < 3; w++) {       // 加粗 3px
+        for (int w = 0; w < 3; w++) {
             int yy = y0 + i;
             int xa = x0 + i + w, xb = x0 + sz - i + w;
             uint8_t ma = 0x80 >> (xa % 8), mb = 0x80 >> (xb % 8);
@@ -77,7 +95,12 @@ void app_main(void)
     ESP_LOGI(TAG, "boot");
     s_main_task = xTaskGetCurrentTaskHandle();
     button_init(on_btn_short, on_btn_long);
-    const display_if_t  *disp   = uc8179_driver();
+    const display_if_t  *disp   =
+#if CONFIG_PANEL_SSD1677_BW_426
+        ssd1677_driver();
+#else
+        uc8179_driver();
+#endif
     const sensor_if_t   *sensor = htu21d_sensor();
     const channel_if_t  *chan   = http_hub_channel();
     disp->init();
