@@ -5,6 +5,8 @@ import textwrap
 
 # 与 hooks/inkpulse_agent_tasks.sh 内嵌的 python 解析等价的独立脚本(单一真相: 见实现步骤,
 # 二者必须一致)。本测试直接执行该解析脚本, 喂样例 stdin, 断言输出 JSON body。
+# 注意: 下方 PARSE 的四行核心解析(todos/tasks/project/json.dumps)必须与
+# hooks/inkpulse_agent_tasks.sh 内嵌的对应四行逐字节一致, 任一处修改务必同步另一处。
 PARSE = textwrap.dedent(r'''
 import sys, json, os
 d = json.load(sys.stdin)

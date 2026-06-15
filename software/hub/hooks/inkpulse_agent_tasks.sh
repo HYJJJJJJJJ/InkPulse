@@ -3,6 +3,7 @@
 # 配置: ~/.claude/settings.json 的 hooks.PostToolUse, matcher "TodoWrite", command 指向本脚本。
 # stdin 收到 PostToolUse JSON(含 tool_input.todos 与 cwd)。失败绝不阻塞会话。
 HUB="${INKPULSE_HUB:-http://127.0.0.1:8080}"
+# 注意: 下方解析逻辑(todos/tasks/project/json.dumps 四行)必须与 tests/test_hook_parse.py 的 PARSE 保持一致。
 BODY="$(python3 -c '
 import sys, json, os
 try:
