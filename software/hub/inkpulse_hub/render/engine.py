@@ -39,6 +39,8 @@ def render_frame(cfg: Config, state: dict, profile: ScreenProfile = DEFAULT_PROF
             draw_na(d, z)
 
     body = pack_frame_for(img, profile)
+    assert len(body) == profile.frame_bytes, \
+        f"{profile.id} 帧字节={len(body)} 与 profile.frame_bytes={profile.frame_bytes} 不符"
     png_buf = io.BytesIO()
     img.save(png_buf, format="PNG")
     return Frame(body=body, etag=frame_etag(body), png_bytes=png_buf.getvalue())

@@ -2,10 +2,6 @@
 import hashlib
 from PIL import Image
 
-WIDTH, HEIGHT = 800, 480
-ROW_BYTES = WIDTH // 8          # 100
-PLANE_BYTES = ROW_BYTES * HEIGHT  # 48000
-
 _BLACK = (0, 0, 0)
 _RED = (255, 0, 0)
 

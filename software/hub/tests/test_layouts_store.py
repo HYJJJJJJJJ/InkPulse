@@ -75,9 +75,6 @@ def test_save_builtin_rejected(tmp_path):
                                    "colspan": 8, "rowspan": 6, "params": {}}])
 
 
-from inkpulse_hub.render import layouts as L
-
-
 def test_bw426_builtin_set_exists():
     store = L.load_store("", "bw_426")
     assert store["grid"] == {"cols": 4, "rows": 8}

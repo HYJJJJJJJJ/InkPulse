@@ -60,7 +60,8 @@ def _photo(d, img, z, state, cfg, p):
 
 
 def _countdown(d, img, z, state, cfg, p):
-    W.draw_countdown(d, z, state.get("now"), p.get("date"), p.get("label", ""))
+    W.draw_countdown(d, z, state.get("now"), p.get("date"), p.get("label", ""),
+                     accent=W.accent_for(state))
 
 
 def _qrcode(d, img, z, state, cfg, p):
@@ -96,7 +97,7 @@ def _agenda(d, img, z, state, cfg, p):
 
 
 def _market(d, img, z, state, cfg, p):
-    W.draw_market(d, z, state.get("market", []))
+    W.draw_market(d, z, state.get("market", []), accent=W.accent_for(state))
 
 
 def _agent_tasks(d, img, z, state, cfg, p):

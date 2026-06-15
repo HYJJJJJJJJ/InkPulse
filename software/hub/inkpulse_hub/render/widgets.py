@@ -314,8 +314,8 @@ def draw_todos(d: ImageDraw.ImageDraw, z: Zone, items: list[TodoItem]) -> None:
         y += 34
 
 
-def draw_countdown(d: ImageDraw.ImageDraw, z: Zone, now, date_str, label="") -> None:
-    """倒计时/纪念日: 顶部标题栏(label) + 居中 D-N。0..3 天内标红。"""
+def draw_countdown(d: ImageDraw.ImageDraw, z: Zone, now, date_str, label="", accent=RED) -> None:
+    """倒计时/纪念日: 顶部标题栏(label) + 居中 D-N。0..3 天内标 accent 色。"""
     import datetime, time
     cy = _title_bar(d, z, label or "倒计时")
     body = Zone(z.x, cy, z.w, z.y + z.h - cy)
@@ -332,7 +332,7 @@ def draw_countdown(d: ImageDraw.ImageDraw, z: Zone, now, date_str, label="") -> 
         big = "就在今天"
     else:
         big = f"已过{-days}天"
-    color = RED if 0 <= days <= 3 else BLACK
+    color = accent if 0 <= days <= 3 else BLACK
     _center_text(d, body, big, _font(min(48, max(20, body.h - 8))), color)
 
 
@@ -619,8 +619,8 @@ def draw_agenda(d: ImageDraw.ImageDraw, z: Zone, events, now) -> None:
         d.text((tx, y), title, fill=BLACK, font=f)
 
 
-def draw_market(d: ImageDraw.ImageDraw, z: Zone, quotes) -> None:
-    """自选行情列表。quotes=[{name,price,change_pct,...}]; 涨=红 跌/平=黑, 名称/现价恒黑。"""
+def draw_market(d: ImageDraw.ImageDraw, z: Zone, quotes, accent=RED) -> None:
+    """自选行情列表。quotes=[{name,price,change_pct,...}]; 涨=accent 跌/平=黑, 名称/现价恒黑。"""
     cy = _title_bar(d, z, "行情")
     if not quotes:
         _center_text(d, z, "无标的 · 去网页添加", _font(18), BLACK)
@@ -639,7 +639,7 @@ def draw_market(d: ImageDraw.ImageDraw, z: Zone, quotes) -> None:
         d.text((price_x, y), f"{q.get('price', 0):.2f}", fill=BLACK, font=f)
         pct = q.get("change_pct", 0.0)
         s = f"{pct:+.2f}%"
-        col = RED if pct > 0 else BLACK
+        col = accent if pct > 0 else BLACK
         pw = d.textlength(s, font=f)
         d.text((z.x + z.w - pw - 6, y), s, fill=col, font=f)
 

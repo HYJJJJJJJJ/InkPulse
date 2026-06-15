@@ -77,3 +77,15 @@ def test_usage_ring_bw_no_red_when_high():
     draw_usage_ring(d, Zone(0, 0, 200, 200), Usage(window_used_ratio=0.95), accent=BLACK)
     assert not any(img.getpixel((x, y)) == (255, 0, 0)
                    for x in range(200) for y in range(200))
+
+
+def test_market_and_countdown_bw_no_red():
+    from inkpulse_hub.render.widgets import draw_market, draw_countdown
+    img, d = _img(300, 200)
+    # days=0 => "就在今天", 0<=days<=3 会触发红色
+    draw_countdown(d, Zone(0, 0, 300, 100), 1718000000.0, "2024-06-10", "新年", accent=BLACK)
+    # change_pct > 0 => 涨, 彩色下会触发红色
+    draw_market(d, Zone(0, 100, 300, 100),
+                [{"name": "AAPL", "price": 100.0, "change_pct": 2.5}], accent=BLACK)
+    assert not any(img.getpixel((x, y)) == (255, 0, 0)
+                   for x in range(300) for y in range(200))
