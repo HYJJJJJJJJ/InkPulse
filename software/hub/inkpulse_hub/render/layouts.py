@@ -47,13 +47,13 @@ _BW_426 = {
         _p("big_clock", 0, 0, 4, 3), _p("calendar", 0, 3, 4, 3),
         _p("todos", 0, 6, 4, 2)]},
     "usage": {"builtin": True, "placements": [
-        _p("usage", 0, 0, 4, 3), _p("usage_ring", 0, 3, 4, 2),
-        _p("claude_status", 0, 5, 2, 3), _p("todos", 2, 5, 2, 3)]},
+        _p("usage", 0, 0, 4, 3), _p("usage_ring", 0, 3, 4, 3),
+        _p("todos", 0, 6, 4, 2)]},
     "split": {"builtin": True, "placements": [
         _p("header", 0, 0, 4, 1), _p("claude_status", 0, 1, 4, 2),
-        _p("calendar", 0, 3, 4, 2), _p("todos", 0, 5, 4, 3)]},
+        _p("calendar", 0, 3, 4, 3), _p("todos", 0, 6, 4, 2)]},
     "todo": {"builtin": True, "placements": [
-        _p("todos", 0, 0, 4, 5), _p("calendar", 0, 5, 4, 3)]},
+        _p("todos", 0, 0, 4, 4), _p("calendar", 0, 4, 4, 4)]},
 }
 
 BUILTIN_LAYOUTS = {"bwr_750": _BWR_750, "bw_426": _BW_426}

@@ -87,11 +87,15 @@ def _font(size: int) -> ImageFont.ImageFont:
 
 
 def _title_bar(d: ImageDraw.ImageDraw, z: Zone, text: str) -> int:
-    """黑底白字分区标题栏(结构性, 不用红)。返回标题栏下方内容起始 y。"""
-    h = 26
-    d.rectangle((z.x, z.y, z.x + z.w - 1, z.y + h), fill=BLACK)
-    d.text((z.x + 8, z.y + 3), text, fill=WHITE, font=_font(18))
-    return z.y + h + 6
+    """分区标题: 加粗黑字 + 下方细黑线(下划线式, 不用红, 不占满黑底)。
+    返回标题下方内容起始 y。"""
+    f = _font(18)
+    # faux-bold: 同位重描一像素, 加粗笔画(思源黑无内建粗体)
+    d.text((z.x + 6, z.y + 2), text, fill=BLACK, font=f)
+    d.text((z.x + 7, z.y + 2), text, fill=BLACK, font=f)
+    ry = z.y + 26
+    d.line((z.x, ry, z.x + z.w - 1, ry), fill=BLACK, width=2)
+    return ry + 8
 
 
 def _elapsed_text(since, now) -> str:
@@ -224,15 +228,16 @@ def draw_header(d: ImageDraw.ImageDraw, z: Zone, clock_text: str, lunar, temp, h
     time_str, date_cn, weekday = _parse_clock(clock_text)
     text = (lunar or {}).get("text", "")
     fest = (lunar or {}).get("festival", "")
-    # 右上角: 温度(°C)[+湿度] + WiFi 信号格; 按实际文字宽度右对齐
-    t = f"{temp:.0f}°C" if temp is not None else "n/a"
-    env = t
-    if humidity is not None and 0 <= humidity <= 100:
-        env = f"{t}  {humidity:.0f}%"
+    # 右上角: 温度(°C)[+湿度] + WiFi 信号格; 按实际文字宽度右对齐。无温度则留空(不显 n/a)
+    env = f"{temp:.0f}°C" if temp is not None else ""
+    if temp is not None and humidity is not None and 0 <= humidity <= 100:
+        env = f"{env}  {humidity:.0f}%"
     env_font = _font(20 if narrow else 22)
     sig_w = 30 if rssi is not None else 0
-    env_x = z.x + z.w - int(d.textlength(env, font=env_font)) - sig_w - 6
-    d.text((env_x, z.y + 8), env, fill=BLACK, font=env_font)
+    env_w = int(d.textlength(env, font=env_font)) if env else 0
+    env_x = z.x + z.w - env_w - sig_w - 6
+    if env:
+        d.text((env_x, z.y + 8), env, fill=BLACK, font=env_font)
     _draw_signal(d, z, rssi)
     right_limit = env_x - 8   # 左侧内容右边界, 不得越过
 
@@ -271,10 +276,11 @@ def draw_claude_status(d: ImageDraw.ImageDraw, z: Zone, s: ClaudeStatus, now=Non
     d.rectangle((z.x + 12, cy + 6, z.x + 34, cy + 30), fill=color)
     label = STATE_LABEL.get(s.state, s.state)
     d.text((z.x + 44, cy), label, fill=color, font=big)
-    proj = s.project or "-"
+    proj = s.project or ""
     elapsed = _elapsed_text(getattr(s, "since", None), now)
-    line2 = proj + (f" · {elapsed}" if elapsed else "")
-    d.text((z.x + 12, cy + 58), line2, fill=BLACK, font=small)
+    line2 = (proj + (f" · {elapsed}" if elapsed else "")) if (proj or elapsed) else ""
+    if line2:   # 空闲且无项目时不画孤立的 "-"
+        d.text((z.x + 12, cy + 58), line2, fill=BLACK, font=small)
 
 
 def draw_usage(d: ImageDraw.ImageDraw, z: Zone, u: Usage, budget_usd=None, accent=RED) -> None:
@@ -302,8 +308,10 @@ def draw_usage(d: ImageDraw.ImageDraw, z: Zone, u: Usage, budget_usd=None, accen
 def draw_todos(d: ImageDraw.ImageDraw, z: Zone, items: list[TodoItem]) -> None:
     cy = _title_bar(d, z, "待办")
     f = _font(20)
+    row_h = 34
+    cap = max(1, (z.y + z.h - cy) // row_h)   # 按区高吃满, 不再写死 4 条
     y = cy
-    for t in items[:4]:
+    for t in items[:cap]:
         box = "✓" if t.done else "□"   # 思源黑无 ☑/☐ 字形, 用确有的 ✓/□
         line = f"{box} {t.text}"
         d.text((z.x + 8, y), line, fill=BLACK, font=f)
@@ -311,7 +319,7 @@ def draw_todos(d: ImageDraw.ImageDraw, z: Zone, items: list[TodoItem]) -> None:
             w = d.textlength(line, font=f)
             ly = y + 13
             d.line((z.x + 8, ly, z.x + 8 + w, ly), fill=BLACK, width=1)
-        y += 34
+        y += row_h
 
 
 def draw_countdown(d: ImageDraw.ImageDraw, z: Zone, now, date_str, label="", accent=RED) -> None:
