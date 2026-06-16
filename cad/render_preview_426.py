@@ -83,20 +83,34 @@ asm = import_step(f"{OUT}/assembly_context.step")
 # label -> 颜色: 显示器灰, 支架棕, bezel 蓝, 后盖绿, 屏参考板亮灰
 color_by_label = {
     "monitor_ref": "#bdbdbd", "bracket": "#d9b48a", "bezel": "#9bb8d3",
-    "back_cover": "#a8c8a0", "screen_ref": "#5a7fa0",
+    "back_cover": "#a8c8a0", "screen_ref": "#5a7fa0", "screen": "#5a7fa0",
+    # AA 区浅色标记薄层 (亮青绿, 醒目): 看窗是否恰好露出 AA、唇只压黑边
+    "aa_active_area": "#3fe0c0",
     # 装配模拟连接器实体: POGO=黄铜金, Type-C 母座=深金属灰
     "pogo_connector": "#c9a227", "typec_receptacle": "#5f666e",
 }
-# 预先把各节点三角面缓存 (供两个视角复用)
+# 预先把各节点三角面缓存 (供两个视角复用); 递归进子 Compound (screen_ref 含 AA 子件) 取每个 solid 的 label.
 asm_tris = []  # (color, tri)
-for node in (asm.children or []):
-    col = color_by_label.get(getattr(node, "label", ""), "#cccccc")
+
+
+def _walk_colored(node, inherit_label=""):
+    lbl = getattr(node, "label", "") or inherit_label
+    kids = getattr(node, "children", None)
+    if kids:
+        for c in kids:
+            _walk_colored(c, lbl)
+        return
+    col = color_by_label.get(lbl, color_by_label.get(inherit_label, "#cccccc"))
     for s in node.solids():
         verts, faces = s.tessellate(0.5)
         v = np.array([(p.X, p.Y, p.Z) for p in verts])
         tri = np.array([v[list(f)] for f in faces])
         if len(tri):
             asm_tris.append((col, tri))
+
+
+for node in (asm.children or []):
+    _walk_colored(node)
 allpts = np.vstack([t for _, t in asm_tris]).reshape(-1, 3)
 mn, mx = allpts.min(0), allpts.max(0)
 ctr = (mn + mx) / 2; r = (mx - mn).max() / 2
@@ -176,6 +190,41 @@ def mark_pogo(ax):
             color="#070", fontsize=8, zorder=12)
 
 
+# --- AA 区 / 视窗 世界矩形 (画在墨水屏正面 Z≈0): 看窗是否恰好露出 AA、唇只压黑边 ---
+from build123d import Pos as _AAPos
+_place_aa = _E.body_placement()
+
+
+def _body_to_world(lx, ly, lz):
+    v = (_place_aa * _AAPos(lx, ly, lz)).position
+    return (v.X, v.Y, v.Z)
+
+
+# 屏体局部: 墨水屏正面 z=0 (装配后世界 Z≈0). AA/窗 X 居中, Y 上偏 WINDOW_OFFSET_Y.
+_AA_HW, _AA_HH = _E.AA_W / 2, _E.AA_H / 2
+_WIN_HW, _WIN_HH = _E.WINDOW_W / 2, _E.WINDOW_H / 2
+_OY = _E.WINDOW_OFFSET_Y
+_Zf = 0.0
+
+
+def _rect_world(hw, hh, oy, z):
+    corners = [(-hw, oy - hh), (hw, oy - hh), (hw, oy + hh), (-hw, oy + hh), (-hw, oy - hh)]
+    pts = [_body_to_world(x, y, z) for (x, y) in corners]
+    return [p[0] for p in pts], [p[1] for p in pts], [p[2] for p in pts]
+
+
+def mark_aa(ax):
+    """在墨水屏正面画 AA 区 (青绿实线) 与 视窗 (品红虚线): 看窗⊇AA、唇(窗外)只压黑边."""
+    ax_, ay_, az_ = _rect_world(_AA_HW, _AA_HH, _OY, _Zf + 0.2)
+    wx_, wy_, wz_ = _rect_world(_WIN_HW, _WIN_HH, _OY, _Zf + 0.3)
+    ax.plot(ax_, ay_, az_, color="#0fb89a", linewidth=2.0, zorder=13)
+    ax.plot(wx_, wy_, wz_, color="#d11fa0", linewidth=1.6, linestyle="--", zorder=13)
+    ctr_aa = _body_to_world(0, _OY + _AA_HH, _Zf)
+    ax.text(ctr_aa[0], ctr_aa[1] + 2, ctr_aa[2] + 3,
+            "AA 区(青绿实线) ⊆ 视窗(品红虚线)\n四边窗余 0.25mm; 唇(窗外)只压黑边",
+            color="#087", fontsize=7.5, zorder=14)
+
+
 # 格 7: 装配等轴 (看整体落位) + POGO + Type-C 标注
 ax_aiso = fig.add_subplot(NR, NC, 7, projection="3d")
 draw_asm(ax_aiso, 18, -65,
@@ -184,6 +233,7 @@ draw_asm(ax_aiso, 18, -65,
 mark_magnets(ax_aiso)
 mark_pogo(ax_aiso)
 mark_typec(ax_aiso)
+mark_aa(ax_aiso)
 
 # 格 8: 装配侧视 (沿 -X 看 Y-Z 平面) — 一眼可见 墨水屏与显示器共面、支柱藏背后
 ax_side = fig.add_subplot(NR, NC, 8, projection="3d")
@@ -193,6 +243,7 @@ draw_asm(ax_side, 6, 0,
 mark_magnets(ax_side, label=False)
 mark_pogo(ax_side)
 mark_typec(ax_side)
+mark_aa(ax_side)
 
 # ============================================================
 # 第 3 行: POGO 专属视图 (对接面针朝屏) + Type-C 专属视图 (支架底边剖切露 14mm 体腔)

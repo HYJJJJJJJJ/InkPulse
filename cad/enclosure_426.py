@@ -106,10 +106,14 @@ POGO_MOUNT_SPAN = 17.54        # 2× Φ1.5 安装孔中心相距 (沿 X, 居中)
 POGO_MOUNT_D = 1.5             # 安装孔直径
 POGO_BODY_CLEAR = 0.15         # POGO 本体腔单边配合余量 (压配/胶固定)
 
-# --- 屏体受电侧: 4 触点 pad 窗 + 2 钢吸片腔 ---
-PAD_WINDOW_D = 2.0             # 触点 pad 窗直径 (露板背 pad, 对位 pogo 针)
-STEEL_D = 3.5                  # 钢吸片直径 (被 pogo N/S 磁吸住)
-STEEL_T = 1.0                  # 钢吸片厚 (嵌入后盖腔深)
+# --- 屏体受电侧: POGO 配对腔 (成对使用; 嵌配对的那半 POGO, 同 footprint 20.44×4.0) ---
+#   架构变更: POGO 是配对连接器, 支架侧已嵌一半 (针+磁), 后盖须嵌配对的那半 (目标连接器).
+#   故后盖也开一个本体凹腔 (同 footprint), 从可装入面 (内侧/+z 朝 PCB) 敞开装入配对 POGO,
+#   对接面 (外侧/-z 朝支架) 只留薄壁 + 触点窗让两半 POGO 接触. 替代原 4 pad 窗 + 2 钢片腔.
+POGO_MATE_BODY_H = 2.00       # 配对 POGO 本体高 (沉入后盖凹腔深度)
+POGO_MATE_FACE_WALL = 0.8     # 对接面 (外侧) 薄壁 (< 针凸出 1.5, 配对两半针/触点可接触)
+POGO_MATE_CLEAR = 0.15        # 配对 POGO 本体腔单边配合余量 (压配/胶固定)
+POGO_CONTACT_WIN_D = POGO_PIN_TIP_D + 0.9   # 对接面触点窗径 ≈1.6 (露配对触点, 对位针)
 CONTACT_AIR_GAP = 0.3         # pogo 针面到后盖外表面气隙 (针凸 1.5 压缩接触余量)
 
 # --- 走线腔: 支架内 Type-C 腔 <-> POGO 腔连通通道 (容飞线 + 小 dock PCB/CC 电阻) ---
@@ -262,11 +266,10 @@ SCREW_CLEAR_D = 2.4                          # 后盖侧 M2 通孔
 BOSS_EDGE_MARGIN_X = BEZEL_OUT_W / 2 - (BOSS_X + BOSS_D / 2)   # ≈ WALL
 BOSS_EDGE_MARGIN_Y = BEZEL_OUT_H / 2 - (BOSS_Y + BOSS_D / 2)   # ≈ WALL
 
-# --- 屏体受电侧对接区 (后盖): 8×Φ8 磁 (4 后盖 + 4 支架镜像) + POGO 受电 ---
-# 用户要求恢复: 后盖对接区 = 4×Φ8 磁腔 (吸合/承重) + 4 触点 pad 窗 + 2 钢吸片腔.
+# --- 屏体受电侧对接区 (后盖): 8×Φ8 磁 (4 后盖 + 4 支架镜像) + POGO 配对腔 ---
+# 后盖对接区 = 4×Φ8 磁腔 (吸合/承重) + POGO 配对腔 (嵌配对的那半 POGO, 与支架 POGO 成对):
 #   - 4×Φ8 磁腔: 对接带四角 (X=±MAG_COL_X, Y=band±MAG_INSET_Y), 与支架对接面 4 磁镜像对吸;
-#   - 4 触点 pad 窗 (对位 pogo 4 针, 露板背 pad);
-#   - 2 钢吸片腔 (对位 pogo N/S 磁, 嵌 Φ3.5×1 钢片被吸住, 助 POGO 自吸正).
+#   - POGO 配对腔: 本体凹腔 (20.44×4.0) + 对接面 4 触点窗 (对位 pogo 4 针) + 2 安装孔.
 BACK_COVER_PLATE_T = BACK_WALL              # 1.5
 # --- 对接区竖向中心 (沿用原磁带中心 Y, 屏体中上部) ---
 # 带中心 MAG_BAND_CENTER_Y (后盖局部 Y, 上=+Y): 取屏顶下方约 1/3 屏高处.
@@ -275,14 +278,14 @@ MAG_BAND_CENTER_Y = BEZEL_OUT_H / 2 - BEZEL_OUT_H / 3   # ≈ +18.4 (中上部)
 # 对接区 X 居中 (POGO 水平居中 => 后盖目标区也 X 居中):
 DOCK_CENTER_X = 0.0
 DOCK_CENTER_Y = MAG_BAND_CENTER_Y           # 对接区竖向中心 (后盖局部)
-# --- 后盖 4 触点 pad 窗坐标 (对位 pogo 4 针: 沿 X 间距 2.54, 跨度 7.62, 居中) ---
+# --- 后盖 POGO 配对腔 4 触点窗坐标 (对位 pogo 4 针: 沿 X 间距 2.54, 跨度 7.62, 居中) ---
 #   后盖法向 -Z 贴支架对接板 (+Z), 对贴 => 屏宽(X) 镜像. 后盖局部 X 即与对接面 X 镜像关系
-#   由装配 Rot(0,180,0) 自动满足 (与原磁位镜像同一逻辑). 窗 X 居中对称, 故镜像后仍重合.
+#   由装配 Rot(0,180,0) 自动满足. 窗 X 居中对称, 故镜像后仍与支架针阵重合.
 PAD_WINDOW_POSITIONS = [
     (i * POGO_PIN_PITCH - POGO_PIN_SPAN / 2, DOCK_CENTER_Y)
     for i in range(POGO_PIN_N)
 ]
-# --- 后盖 2 钢吸片腔坐标 (对位 pogo N/S 磁: 相距 13.54, 居中) ---
+# --- 后盖配对 POGO N/S 磁坐标 (对位支架 pogo N/S 磁: 相距 13.54, 居中; 成对对吸) ---
 STEEL_POSITIONS = [
     (-POGO_MAG_SPAN / 2, DOCK_CENTER_Y), (+POGO_MAG_SPAN / 2, DOCK_CENTER_Y),
 ]
@@ -325,21 +328,32 @@ FPC_SLOT_DEPTH = 10.0                        # 沿 +Y 深入
 BODY_CENTER_Y_WORLD = (0.0 + TOP_FLUSH_OFFSET) - BEZEL_OUT_H / 2   # ≈ -53.06
 
 # ============================================================
-# 后盖嵌入凸台 plug (无螺丝夹持: 边框前端面压住 PCB 背面四周边沿)
+# 元件包络 (实测; plug/PCBA 共用; plug 必须按此派生, 不再按屏腔 SCR_CAV)
 # ============================================================
-# plug 外框 = 腔内 - 配合间隙; 从后盖内面(z=BEZEL_DEPTH=8.3 装配后)伸入到 PCB 背面(4.1).
-BC_PLUG_INSET = FIT_GAP                        # 凸台与腔配合间隙
-BC_PLUG_W = SCR_CAV_W - 2 * BC_PLUG_INSET
-BC_PLUG_H = SCR_CAV_H - 2 * BC_PLUG_INSET
-# plug 伸入深度: 从背腔内面 (BEZEL_DEPTH) 伸到 PCB 背面 (PCB_BACK_Z), 前端面压 PCB 背边沿.
-#   给 0.1 过盈 (预压): 前端面比 PCB 背面再前推 BC_PLUG_PRELOAD, 拧紧 M2 时夹紧板.
-BC_PLUG_PRELOAD = 0.1                          # 夹持预压量 (0~0.2 过盈; 余量靠泡棉/板弹性吸收)
-BC_PLUG_DEPTH = (BEZEL_DEPTH - PCB_BACK_Z) + BC_PLUG_PRELOAD   # 8.3-4.1+0.1 = 4.3
-# plug 边框宽度 (只压 PCB 周边非元件区, 中央镂空让过元件):
-BC_PLUG_RIM = 4.0                              # 边框料宽 (压 PCB 周边 4mm)
-# plug 中央镂空 = PCB 元件区 + 余量; 镂空必须贯穿整个 plug 深度让开 4mm 高元件.
-BC_PLUG_CAV_W = BC_PLUG_W - 2 * BC_PLUG_RIM
-BC_PLUG_CAV_H = BC_PLUG_H - 2 * BC_PLUG_RIM
+# 修 bug "plug 撞 PCB/元件": 旧 plug 按屏腔 SCR_CAV(63.17×106.13)派生, 但 PCB 实际仅 60×95,
+#   元件包络实测 ±26.7×±45.5 (= 53.4×91.0). 旧 plug 边框压偏 PCB(漏上下、蹭元件)+ 0.1 预压过盈.
+#   现 plug 几何全部按 "PCB(60×95) + 元件包络" 派生: rim 落在 [元件边 .. PCB 边] 这圈非元件区.
+COMP_ENV_W = 53.4                              # 元件包络宽 (实测 ±26.7)
+COMP_ENV_H = 91.0                              # 元件包络高 (实测 ±45.5)
+
+# ============================================================
+# 后盖嵌入凸台 plug (按 PCB 派生: 边框 rim 压 PCB 四周非元件边沿, 中央镂空让过元件)
+# ============================================================
+# rim 落在 [元件边 .. PCB 边] 这圈非元件区, 四边都压到 (含上下):
+#   - rim 外缘 = PCB 边 - 内缩 (压在 PCB 上, 不超出 PCB 落空) => plug 外框 = PCB - 2×BC_PLUG_EDGE_INSET;
+#   - rim 内缘 = 元件包络 + 让位 (避开元件, ∩元件=0)   => 中央镂空 = 元件包络 + 2×BC_PLUG_CAV_CLEAR.
+BC_PLUG_EDGE_INSET = 0.5                       # plug 外缘从 PCB 边内缩 (压在 PCB 上, 不落空)
+BC_PLUG_CAV_CLEAR = 1.0                        # 中央镂空相对元件包络的单边让位 (避开元件)
+BC_PLUG_W = PCB_W - 2 * BC_PLUG_EDGE_INSET     # 59.0 (< PCB 60, 压在 PCB 上)
+BC_PLUG_H = PCB_H - 2 * BC_PLUG_EDGE_INSET     # 94.0 (< PCB 95, 四边含上下都压 PCB)
+BC_PLUG_CAV_W = COMP_ENV_W + 2 * BC_PLUG_CAV_CLEAR   # 55.4 (> 元件 53.4, 不撞元件)
+BC_PLUG_CAV_H = COMP_ENV_H + 2 * BC_PLUG_CAV_CLEAR   # 93.0 (> 元件 91.0, 不撞元件)
+# rim 单边料宽 (派生; 应 >0 才有边框压板): (外框 - 镂空)/2.
+BC_PLUG_RIM_W = (BC_PLUG_W - BC_PLUG_CAV_W) / 2      # ≈1.8 (左右 rim)
+BC_PLUG_RIM_H = (BC_PLUG_H - BC_PLUG_CAV_H) / 2      # ≈0.5 (上下 rim, 较窄但四边都压到)
+# 预压清零: 刚好贴 PCB 背面 z=PCB_BACK_Z (不过盈), 由 4×M2 螺丝夹紧, 不靠塑料过盈.
+BC_PLUG_PRELOAD = 0.0                          # 夹持预压量 (0 = 刚好贴 PCB 背面, 无体积过盈)
+BC_PLUG_DEPTH = (BEZEL_DEPTH - PCB_BACK_Z) + BC_PLUG_PRELOAD   # 8.3-4.1+0 = 4.2
 # (已删除) plug 底边 Type-C 让位缺口 — 架构变更: 屏体无 Type-C 母座, plug 底边边框完整保留.
 
 # ============================================================
@@ -479,26 +493,40 @@ def make_back_cover():
                 Cylinder(PCB_STANDOFF_D / 2, PCB_STANDOFF_H + 0.3,
                          align=(Align.CENTER, Align.CENTER, Align.MIN))
         # 对角 2 定位销: 从支柱顶 (= PCB 背面, 后盖局部 z=BC_STANDOFF_TOP_LOCAL_Z) 向 +z 插板定位孔.
+        #   修 bug: 后盖装配翻转 Rot(0,180,0) 会镜像 X. PCB 定位孔在屏体/bezel 局部 (不翻转),
+        #   故后盖侧定位销须按 -X 镜像放置, 翻转后才与 PCB 孔对齐 (销 Φ1.8 落孔 Φ2.0 内, ∩PCB=0).
+        #   (支柱 4 角对称, X 镜像映回自身, 无需处理; 仅 2 对角定位销受影响.)
         for (px, py) in PCB_LOC_PIN_POSITIONS:
-            with Locations((px, py, BC_STANDOFF_TOP_LOCAL_Z)):
+            with Locations((-px, py, BC_STANDOFF_TOP_LOCAL_Z)):
                 Cylinder(PCB_LOC_PIN_D / 2, PCB_LOC_PIN_H,
                          align=(Align.CENTER, Align.CENTER, Align.MIN))
 
-        # 3) 受电侧对接区 (替代原 4×Φ8 磁腔):
-        #    架构变更: 删除 4×Φ8 磁腔. 改为
-        #      (a) 4 触点 pad 窗 (Φ2, 对位 pogo 4 针): 贯穿后盖外壳, 露板背 pad;
-        #      (b) 2 钢吸片腔 (Φ3.5×1, 对位 pogo N/S 磁): 从外表面 z=0 沉 STEEL_T 嵌钢片 (不穿透).
-        plate_through_h = BACK_COVER_PLATE_T + 0.02
-        # (a) 4 触点 pad 窗 — 贯穿后盖盖板 (z=0..PLATE_T), pogo 针凸出后压到此处露出的板背 pad.
+        # 3) 受电侧对接区 = POGO 配对腔 (替代原 4 pad 窗 + 2 钢片腔):
+        #    架构变更: POGO 是配对连接器, 支架侧已嵌一半; 后盖嵌配对的那半 (同 footprint 20.44×4.0).
+        #    几何 (与后盖局部 z 关系: 外表面 z=0 朝支架; 内侧 +z 朝 PCB):
+        #      - 对接面 (外侧, z∈[0, FACE_WALL]) 只留薄壁 + 触点窗 (露配对触点对位 pogo 针);
+        #      - 本体凹腔 (z∈[FACE_WALL, FACE_WALL+BODY_H]) 容配对 POGO 本体;
+        #      - 可装入面 = 内侧 (+z) 敞开 => 配对 POGO 从内侧 (朝 PCB 一侧) 压入/胶固定.
+        #    位置: DOCK_CENTER_X/Y (X 居中), 与支架 POGO 镜像对齐 (装配 Rot(0,180,0) 后偏差≈0).
+        pocket_w_bc = POGO_LEN + 2 * POGO_MATE_CLEAR        # 沿 X (长向)
+        pocket_h_bc = POGO_WID + 2 * POGO_MATE_CLEAR        # 沿 Y (宽向)
+        pocket_floor_z = POGO_MATE_FACE_WALL                # 凹腔底 (外侧薄壁内面)
+        pocket_depth_bc = POGO_MATE_BODY_H + 0.5            # 凹腔深 (容本体 2.0 + 余量, 内侧敞开)
+        # (a) 本体凹腔 — 从内侧 (+z, 朝 PCB) 向外掏到对接面薄壁内面, 内侧敞开可装入.
+        with Locations((DOCK_CENTER_X, DOCK_CENTER_Y, pocket_floor_z)):
+            Box(pocket_w_bc, pocket_h_bc, pocket_depth_bc,
+                align=(Align.CENTER, Align.CENTER, Align.MIN),
+                mode=Mode.SUBTRACT)
+        # (b) 对接面 4 触点窗 — 仅穿外侧薄壁 (z∈[0, FACE_WALL]), 让两半 POGO 针/触点接触.
         for (wx, wy) in PAD_WINDOW_POSITIONS:
             with Locations((wx, wy, -0.01)):
-                Cylinder(PAD_WINDOW_D / 2, plate_through_h,
+                Cylinder(POGO_CONTACT_WIN_D / 2, POGO_MATE_FACE_WALL + 0.02,
                          align=(Align.CENTER, Align.CENTER, Align.MIN),
                          mode=Mode.SUBTRACT)
-        # (b) 2 钢吸片腔 — 从外表面 z=0 向 +z 沉 STEEL_T, 不穿透 (嵌 Φ3.5×1 钢片).
-        for (sx, sy) in STEEL_POSITIONS:
-            with Locations((sx, sy, -0.01)):
-                Cylinder(STEEL_D / 2, STEEL_T + 0.01,
+        # (b2) 配对 POGO 2× Φ1.5 安装孔 (沿 X 跨度 17.54, 居中; 贯穿盖板, 内侧拧固定).
+        for sgn in (-1, +1):
+            with Locations((DOCK_CENTER_X + sgn * POGO_MOUNT_SPAN / 2, DOCK_CENTER_Y, -0.01)):
+                Cylinder(POGO_MOUNT_D / 2, BACK_COVER_PLATE_T + 0.02,
                          align=(Align.CENTER, Align.CENTER, Align.MIN),
                          mode=Mode.SUBTRACT)
         # (c) 4×Φ8 磁腔 (吸合/承重主力, 对接带四角): 盲腔, 磁外侧 (朝支架/对接面) 留薄壁 MAG_OUTER_WALL.
@@ -989,6 +1017,25 @@ def make_screen_ref():
     return sr.part
 
 
+def make_screen_ref_with_aa():
+    """屏参考块 + AA 区浅色标记薄层 (装配可视化用): 看清 "窗是否恰好露出 AA、唇只压黑边".
+
+    AA 区在屏内实际位置 = 屏中心上偏 WINDOW_OFFSET_Y (与视窗 offset 同, 远离 FPC).
+    AA 标记薄层叠在屏前表面 (+z 一侧, 朝用户/视窗), 厚度极薄, 仅作可视化, 不参与打印/布尔判定.
+    返回 Compound(screen + aa_marker), 子件各带 label 供渲染分色.
+    """
+    AA_MARK_T = 0.15                                  # AA 标记薄层厚 (仅可视化)
+    with BuildPart() as _scr:
+        Box(SCREEN_W, SCREEN_H, SCREEN_T)
+    scr = _scr.part; scr.label = "screen"
+    # AA 薄层: 落在屏前表面 (屏局部 +z 最大面 = +SCREEN_T/2), 向 +z 微凸; X 居中, Y 上偏 WINDOW_OFFSET_Y.
+    with BuildPart() as _aa:
+        with Locations((0.0, WINDOW_OFFSET_Y, SCREEN_T / 2)):
+            Box(AA_W, AA_H, AA_MARK_T, align=(Align.CENTER, Align.CENTER, Align.MIN))
+    aa = _aa.part; aa.label = "aa_active_area"
+    return Compound(label="screen_ref", children=[scr, aa])
+
+
 # ============================================================
 # PCBA 装配体 (bezel 局部坐标, 非打印件): PCB + 元件包络 + 4 pogo 接触 pad + 24P 排座.
 #   架构变更: 屏体主板去 Type-C 母座 (改受电侧); 板背 (元件面, +z) 增 4 个 pogo 接触 pad
@@ -1008,10 +1055,10 @@ def make_pcba():
                 Cylinder((PCB_LOC_PIN_D + 0.2) / 2, PCB_T + 0.02,
                          align=(Align.CENTER, Align.CENTER, Align.MIN),
                          mode=Mode.SUBTRACT)
-    # 元件包络: z = PCB_BACK_Z .. COMP_TOP_Z, 落在 plug 中央镂空区内 (避开边框).
-    # 元件包络受"板尺寸"与"plug 镂空"双重约束 (元件不可能超出 PCB; 取两者更小):
-    comp_w = min(BC_PLUG_CAV_W - 1.0, PCB_W - 4.0)
-    comp_h = min(BC_PLUG_CAV_H - 1.0, PCB_H - 4.0)
+    # 元件包络: z = PCB_BACK_Z .. COMP_TOP_Z (实测 ±26.7×±45.5 = COMP_ENV_W×COMP_ENV_H).
+    #   plug 中央镂空 (BC_PLUG_CAV) 已按此包络 + 让位派生, 故元件直接用实测包络 (自检 ∩元件=0 才真实).
+    comp_w = COMP_ENV_W
+    comp_h = COMP_ENV_H
     with BuildPart() as _comp:
         with Locations((0, 0, PCB_BACK_Z)):
             Box(comp_w, comp_h, COMP_H_MAX,
@@ -1025,13 +1072,23 @@ def make_pcba():
                 Cylinder(MAG_BOSS_KEEPOUT_D / 2, COMP_H_MAX + 0.02,
                          align=(Align.CENTER, Align.CENTER, Align.MIN),
                          mode=Mode.SUBTRACT)
+        # PCB 支撑支柱 keepout: 4 角支柱 (Φ4@±28.49,±42.5) 与 4 角定位销, 其 footprint 边缘
+        #   会蹭到元件包络角部 (实测元件 ±26.7, 支柱外缘 ~30.5). 布板时支柱孔位 component-free,
+        #   故从元件包络减去支柱 footprint (留单边间隙) => 元件真实避让, ∩支柱=0.
+        STANDOFF_KEEPOUT_D = PCB_STANDOFF_D + 1.0     # 支柱外径 + 0.5 单边间隙
+        for (sx, sy) in PCB_STANDOFF_POSITIONS:
+            with Locations((sx, sy, PCB_BACK_Z - 0.01)):
+                Cylinder(STANDOFF_KEEPOUT_D / 2, COMP_H_MAX + 0.02,
+                         align=(Align.CENTER, Align.CENTER, Align.MIN),
+                         mode=Mode.SUBTRACT)
     # 4 pogo 接触 pad (板背/元件面 z=PCB_BACK_Z, 朝后盖 +z): 对位 pogo 4 针阵 (X 居中, 间距 2.54).
-    #   薄铜 pad (建模为矮盘), 经后盖 4 触点窗与 pogo 针凸出接触受电. Y 落对接区中心 DOCK_CENTER_Y.
+    #   薄铜 pad (建模为矮盘), 配对 POGO 触点经后盖触点窗压到此处板背 pad 受电. Y 落对接区中心.
     PAD_DISC_T = 0.2    # pad 铜厚 (建模值)
+    PAD_DISC_D = POGO_CONTACT_WIN_D + 0.8    # pad 盘径 (> 触点窗, 确保覆盖接触点)
     with BuildPart() as _pads:
         for (wx, wy) in PAD_WINDOW_POSITIONS:
             with Locations((wx, wy, PCB_BACK_Z)):
-                Cylinder(PAD_WINDOW_D / 2 + 0.4, PAD_DISC_T,
+                Cylinder(PAD_DISC_D / 2, PAD_DISC_T,
                          align=(Align.CENTER, Align.CENTER, Align.MIN))
     # 24P FPC 排座: PCB 底边中点, 元件面朝后, 矮座.
     with BuildPart() as _fpc:
@@ -1245,6 +1302,8 @@ def make_assembly_context(bezel, back_cover, bracket, screen_ref, monitor):
     bz_world, bc_world, br_world = _placed_print_parts(bezel, back_cover, bracket)
     # 修 bug2: 墨水屏在屏腔内居中 (去掉 WINDOW_OFFSET_Y 竖向平移); 仅视窗开口上移对 AA.
     #   旧方案屏被整体上移 WINDOW_OFFSET_Y, 而屏腔(SCR_CAV)未上移 => 屏顶戳出腔顶 ~2.6mm.
+    #   屏块上叠 AA 浅色标记薄层 (屏内 AA 实际位置 = 屏中心上偏 WINDOW_OFFSET_Y), 看窗露 AA/唇压黑边.
+    screen_ref = make_screen_ref_with_aa()
     sr_local = Pos(0, 0, FRONT_WALL_T + SCREEN_T / 2) * screen_ref
     sr_world = place * sr_local
     monitor.label = "monitor_ref"      # 改动 2: 参考体 label
@@ -1320,7 +1379,20 @@ def main():
     lip_w_side = (cav_x1 - win_x1)  # 单边唇宽
     print(f"[2 视窗] 窗X[{win_x0:.2f},{win_x1:.2f}] 覆盖 AA X[{aa_x0:.2f},{aa_x1:.2f}]: {covers_aa and True}")
     print(f"         窗在屏容腔内(不破壁): {in_cav}; 单边唇宽 ≈ {lip_w_side:.2f}mm (黑边 {BORDER_SIDE})")
-    print(f"         结论: 覆盖AA={covers_aa}  窗在腔内={in_cav}  -> {'通过' if covers_aa and in_cav else '失败'}")
+    # 窗四边相对 AA 的余量 (窗须 ⊇ AA, 四边都 ≥AA, 留窗余量 = AA 露出且不被唇遮挡):
+    m_left = aa_x0 - win_x0       # 左: 窗左沿到 AA 左沿 (>0 窗在 AA 左外, 不遮)
+    m_right = win_x1 - aa_x1      # 右: 窗右沿到 AA 右沿
+    m_bot = aa_y0 - win_y0        # 下: 窗下沿到 AA 下沿
+    m_top = win_y1 - aa_y1        # 上: 窗上沿到 AA 上沿
+    margins_ok = min(m_left, m_right, m_bot, m_top) >= 0.0
+    print(f"         窗-AA 四边余量 (>0=窗露出AA, 唇不压AA): 上={m_top:+.2f} 下={m_bot:+.2f} "
+          f"左={m_left:+.2f} 右={m_right:+.2f} (单边窗余 = WINDOW_MARGIN/2 = {WINDOW_MARGIN/2:.2f})")
+    # 唇 (前面板 - 窗) ∩ AA = 0 (唇不压 AA): 几何判据 = 窗 ⊇ AA (上方四边余量均 >=0).
+    #   窗严格盖住 AA => 前面板在 AA 投影区全被窗挖空, 残留唇环只落在 AA 外 (黑边), 故唇∩AA=0.
+    lip_no_cover_aa = margins_ok
+    print(f"         唇 ∩ AA = 0 (唇只压黑边, 不遮 AA)? {lip_no_cover_aa} (= 窗⊇AA 四边余量均≥0)")
+    print(f"         结论: 覆盖AA={covers_aa}  窗在腔内={in_cav}  唇不遮AA={lip_no_cover_aa}  -> "
+          f"{'通过' if covers_aa and in_cav and lip_no_cover_aa else '失败'}")
 
     from build123d import Cylinder as _Cyl
     _mate = make_bracket.mate
@@ -1360,25 +1432,25 @@ def main():
     def _bc_world_xy(lx, ly, lz=0.0):
         v = (place_bc * Pos(lx, ly, lz)).position
         return (v.X, v.Y)
-    # 3a) 4 触点 pad 窗 (后盖局部 PAD_WINDOW_POSITIONS) vs 支架 pogo 4 针:
+    # 3a) 后盖 POGO 配对腔 4 触点窗 (后盖局部 PAD_WINDOW_POSITIONS) vs 支架 pogo 4 针:
     max_pad_d = 0.0
-    print("          pad 窗(世界 X,Y) vs pogo 针(世界 X,Y) 偏差:")
+    print("          配对腔触点窗(世界 X,Y) vs 支架 pogo 针(世界 X,Y) 偏差:")
     for (wx, wy), (px, py, pz) in zip(PAD_WINDOW_POSITIONS, _mate['pogo_pins_world']):
         wxw, wyw = _bc_world_xy(wx, wy)
         d = math.hypot(wxw - px, wyw - py)
         max_pad_d = max(max_pad_d, d)
-        print(f"            pad({wxw:+.2f},{wyw:+.2f}) vs 针({px:+.2f},{py:+.2f}) 偏差={d:.4f}")
-    print(f"          4 pad 窗 vs 4 针 最大镜像偏差 = {max_pad_d:.4f}mm -> "
+        print(f"            触点窗({wxw:+.2f},{wyw:+.2f}) vs 针({px:+.2f},{py:+.2f}) 偏差={d:.4f}")
+    print(f"          4 触点窗 vs 4 针 最大镜像偏差 = {max_pad_d:.4f}mm -> "
           f"{'通过(≈0)' if max_pad_d < 1e-6 else '检查'}")
-    # 3b) 2 钢片腔 (后盖局部 STEEL_POSITIONS) vs 支架 pogo N/S 磁:
+    # 3b) 后盖配对 POGO N/S 磁 (后盖局部 STEEL_POSITIONS) vs 支架 pogo N/S 磁 (成对对吸):
     max_steel_d = 0.0
-    print("          钢片腔(世界 X,Y) vs pogo N/S 磁(世界 X,Y) 偏差:")
+    print("          配对腔 N/S 磁(世界 X,Y) vs 支架 pogo N/S 磁(世界 X,Y) 偏差:")
     for (sx, sy), (mxw, myw) in zip(STEEL_POSITIONS, _mate['pogo_mag_world']):
         sxw, syw = _bc_world_xy(sx, sy)
         d = math.hypot(sxw - mxw, syw - myw)
         max_steel_d = max(max_steel_d, d)
-        print(f"            钢片({sxw:+.2f},{syw:+.2f}) vs N/S磁({mxw:+.2f},{myw:+.2f}) 偏差={d:.4f}")
-    print(f"          2 钢片腔 vs N/S 磁 最大镜像偏差 = {max_steel_d:.4f}mm -> "
+        print(f"            配对磁({sxw:+.2f},{syw:+.2f}) vs 支架磁({mxw:+.2f},{myw:+.2f}) 偏差={d:.4f}")
+    print(f"          配对 POGO N/S 磁 vs 支架 N/S 磁 最大镜像偏差 = {max_steel_d:.4f}mm -> "
           f"{'通过(≈0)' if max_steel_d < 1e-6 else '检查'}")
 
     # --- 3c) 8×Φ8 磁腔自检 (用户要求恢复): 计数 / 镜像对齐 / 棋盘极性 / 与 POGO·pad·钢片·走线腔·壳块不重叠 ---
@@ -1461,27 +1533,29 @@ def main():
         max_br_ov = max(max_br_ov, vpk, vch, vhs, vmt)
         print(f"   [不重叠·支架] 磁({wx:+.1f},{wy:+.1f}): ∩POGO凹腔={vpk:.3f} ∩走线腔={vch:.3f} "
               f"∩Type-C壳块={vhs:.3f} ∩安装孔={vmt:.3f}")
-    # 屏体侧特征实体: 4 pad 窗 / 2 钢片腔.
+    # 屏体侧特征实体: POGO 配对腔 (本体凹腔 + 触点窗 + 2 安装孔) — 8 磁须与之不重叠.
+    pocket_w_bc3c = POGO_LEN + 2 * POGO_MATE_CLEAR
+    pocket_h_bc3c = POGO_WID + 2 * POGO_MATE_CLEAR
+    pocket_depth_bc3c = POGO_MATE_BODY_H + 0.5
+    with BuildPart() as _mp3c:
+        with Locations((DOCK_CENTER_X, DOCK_CENTER_Y, POGO_MATE_FACE_WALL + pocket_depth_bc3c / 2)):
+            Box(pocket_w_bc3c, pocket_h_bc3c, pocket_depth_bc3c, align=(Align.CENTER,) * 3)
+    mp3c = _mp3c.part
     pad3c = []
     for (wx, wy) in PAD_WINDOW_POSITIONS:
         with BuildPart() as _p3c:
-            with Locations((wx, wy, BACK_COVER_PLATE_T / 2)):
-                Cylinder(PAD_WINDOW_D / 2, BACK_COVER_PLATE_T, align=(Align.CENTER,) * 3)
+            with Locations((wx, wy, POGO_MATE_FACE_WALL / 2)):
+                Cylinder(POGO_CONTACT_WIN_D / 2, POGO_MATE_FACE_WALL, align=(Align.CENTER,) * 3)
         pad3c.append(_p3c.part)
-    st3c = []
-    for (sx, sy) in STEEL_POSITIONS:
-        with BuildPart() as _s3c:
-            with Locations((sx, sy, STEEL_T / 2)):
-                Cylinder(STEEL_D / 2, STEEL_T, align=(Align.CENTER,) * 3)
-        st3c.append(_s3c.part)
     max_bc_ov = 0.0
     for (mx, my) in MAG_POSITIONS:
         md = _disc(MAG_OUTER_WALL + MAG_T / 2, mx, my)
-        vpad = max((md & p).volume for p in pad3c); vst = max((md & x).volume for x in st3c)
-        max_bc_ov = max(max_bc_ov, vpad, vst)
-        print(f"   [不重叠·后盖] 磁({mx:+.1f},{my:+.1f}): ∩pad窗(max)={vpad:.3f} ∩钢片腔(max)={vst:.3f}")
+        vpkt = (md & mp3c).volume
+        vpad = max((md & p).volume for p in pad3c)
+        max_bc_ov = max(max_bc_ov, vpkt, vpad)
+        print(f"   [不重叠·后盖] 磁({mx:+.1f},{my:+.1f}): ∩POGO配对腔={vpkt:.3f} ∩触点窗(max)={vpad:.3f}")
     no_overlap = max(max_br_ov, max_bc_ov) < 1e-3
-    print(f"   [不重叠] 8 磁 vs (POGO凹腔/针/安装孔/pad窗/钢片/走线腔/壳块) 最大相交 = "
+    print(f"   [不重叠] 8 磁 vs (支架POGO凹腔/针/安装孔/后盖POGO配对腔/触点窗/走线腔/壳块) 最大相交 = "
           f"{max(max_br_ov, max_bc_ov):.4f} mm3 -> {'通过(互不重叠)' if no_overlap else '失败'}")
     print(f"   [分工] 8×Φ8 磁 = 吸合/承重 (扛屏体~40g+杠杆力); POGO 自带 N/S = 供电+对位 (磁力不足单独承重)")
 
@@ -1536,6 +1610,29 @@ def main():
     print(f"   (4) 针朝屏凸出: 针尖 Z={tip_z:.2f} = 凹腔顶({_mate['pogo_pocket_floor_z']:.2f}) + 针凸出{POGO_PIN_PROTRUDE} "
           f"-> > 贴合面 {_mate['z_top']:.2f}? {tip_z > _mate['z_top']} "
           f"({'通过(凸出朝屏 +Z)' if tip_z > _mate['z_top'] else '失败'})")
+
+    # (5) 后盖 POGO 配对腔可装入 + 镜像对齐: 本体凹腔内侧 (+z 朝 PCB) 敞开装入配对 POGO,
+    #     对接面 (外侧 -z 朝支架) 只留薄壁 + 触点窗; 配对腔位 与支架 POGO 镜像偏差≈0.
+    _pkt_floor_z = POGO_MATE_FACE_WALL
+    _pkt_mid_z = _pkt_floor_z + POGO_MATE_BODY_H / 2
+    _pkt_inner_z = _pkt_floor_z + POGO_MATE_BODY_H + 0.5 + 0.05   # 凹腔内侧开口外 (朝 PCB)
+    bc_pkt_inner_open = _empty(_bc_ins, (DOCK_CENTER_X, DOCK_CENTER_Y, _pkt_inner_z)) and \
+                        _empty(_bc_ins, (DOCK_CENTER_X, DOCK_CENTER_Y, _pkt_mid_z))
+    # 薄壁取样点: 落在凹腔 footprint 内、避开 4 触点窗 (中央两窗在 ±1.27) 与 2 安装孔 (±8.77).
+    #   取凹腔长向偏一点、Y 偏离中心线 (触点窗/安装孔都在中心线 Y) => 落实料薄壁.
+    _wall_probe_y = DOCK_CENTER_Y + POGO_WID / 2 - 0.3   # 偏离中心线 (避开所有圆孔), 仍在凹腔内
+    bc_face_wall = not _empty(_bc_ins, (DOCK_CENTER_X, _wall_probe_y,
+                                        POGO_MATE_FACE_WALL / 2))   # 对接面薄壁 (触点窗外) 有料
+    bc_contact_win = all(_empty(_bc_ins, (wx, wy, POGO_MATE_FACE_WALL / 2)) for (wx, wy) in PAD_WINDOW_POSITIONS)
+    # 镜像对齐: 后盖配对腔中心 (装配世界) vs 支架 POGO 凹腔中心 (世界), 偏差≈0.
+    _pkt_cx_w, _pkt_cy_w = _bc_world_xy(DOCK_CENTER_X, DOCK_CENTER_Y)
+    pkt_mirror_d = math.hypot(_pkt_cx_w - _mate['pogo_cx'], _pkt_cy_w - _mate['pogo_cy'])
+    print(f"   (5) 后盖 POGO 配对腔: 本体凹腔内侧(+z 朝PCB)敞开装入? {bc_pkt_inner_open}; "
+          f"对接面薄壁(外侧)有料? {bc_face_wall}; 4 触点窗穿薄壁? {bc_contact_win}")
+    print(f"       配对腔中心 (世界 X={_pkt_cx_w:+.2f},Y={_pkt_cy_w:+.2f}) vs 支架 POGO 凹腔中心 "
+          f"(X={_mate['pogo_cx']:+.2f},Y={_mate['pogo_cy']:+.2f}) 镜像偏差 = {pkt_mirror_d:.4f}mm -> "
+          f"{'通过(可装入+镜像≈0)' if (bc_pkt_inner_open and bc_face_wall and bc_contact_win and pkt_mirror_d < 1e-6) else '检查'}")
+    print(f"       [开口方向] 配对 POGO 本体: +z (朝 PCB) 内侧装入; 触点: -z 对接面触点窗与支架 POGO 接触")
 
     # --- 4) Type-C 在支柱下方真穿透 (最重要) — 防水母座, 口朝 -Y/向下 ---
     #   架构变更: Type-C 壳块已从对接板底部移到 "支柱下方" (X 偏卡钉端). 开孔 13.6×4.3
@@ -1633,7 +1730,7 @@ def main():
     print(f"          屏体后盖 Φ8 磁腔数 = {n_phi8} (期望 4, 已恢复) -> {'通过' if n_phi8 == 4 else '失败'}")
     print(f"          屏体 Type-C 开口数 = 0 (底边壁实料体积探针 {wall_solid_v:.1f}mm3 > 1 => 无口) -> "
           f"{'通过(底边壁实心, 无 Type-C 口)' if bezel_bottom_solid else '失败(底边壁有口!)'}")
-    print(f"          屏体后盖对接区: 4×Φ8 磁腔 + 4 触点 pad 窗 (Φ{PAD_WINDOW_D}) + 2 钢片腔 (Φ{STEEL_D}×{STEEL_T})")
+    print(f"          屏体后盖对接区: 4×Φ8 磁腔 + POGO 配对腔 ({POGO_LEN}×{POGO_WID}, 4 触点窗 Φ{POGO_CONTACT_WIN_D:.1f} + 2 安装孔 Φ{POGO_MOUNT_D})")
 
     # --- 4b) PCBA 装配 + 无螺丝夹持 + FPC 自检 ---
     print("-" * 78)
@@ -1700,9 +1797,23 @@ def main():
     plug_w = place4 * (back_cover_local() * make_back_cover())
     comp_w_solid = place4 * comp                                  # 元件 (屏体局部 == bezel 局部) -> 世界
     comp_vs_plug = (plug_w & comp_w_solid).volume
-    print(f"   plug 中央镂空 {BC_PLUG_CAV_W:.1f}×{BC_PLUG_CAV_H:.1f} 让过元件 ({pcba['comp_w']:.1f}×{pcba['comp_h']:.1f}); "
-          f"元件 ∩ plug(后盖全体) = {comp_vs_plug:.3f} mm3 -> "
-          f"{'通过(不撞元件)' if comp_vs_plug < 1.0 else '失败(plug 撞元件)'}")
+    print(f"   [A. plug按PCB派生] plug 外框 {BC_PLUG_W:.1f}×{BC_PLUG_H:.1f} (= PCB {PCB_W:.0f}×{PCB_H:.0f} - 2×{BC_PLUG_EDGE_INSET}); "
+          f"中央镂空 {BC_PLUG_CAV_W:.1f}×{BC_PLUG_CAV_H:.1f} (= 元件 {COMP_ENV_W:.1f}×{COMP_ENV_H:.1f} + 2×{BC_PLUG_CAV_CLEAR})")
+    print(f"   元件 ∩ plug(后盖全体) = {comp_vs_plug:.3f} mm3 -> "
+          f"{'通过(∩元件=0, 不撞元件)' if comp_vs_plug < 1.0 else '失败(plug 撞元件)'}")
+    # back_cover ∩ PCB: 预压 0 => 仅贴合面接触 (无体积过盈), 应 ≈0 或仅极小 (<2mm3 接触级).
+    pcb_w_solid = place4 * pcb
+    bc_vs_pcb = (plug_w & pcb_w_solid).volume
+    print(f"   back_cover ∩ PCB = {bc_vs_pcb:.3f} mm3 (预压 BC_PLUG_PRELOAD={BC_PLUG_PRELOAD}; 仅贴合面接触, 无过盈) -> "
+          f"{'通过(≈0/接触级)' if bc_vs_pcb < 2.0 else '失败(过盈)'}")
+    # plug rim 四边都压 PCB: rim 落在 [元件边 .. PCB 边] 这圈非元件区, 上/下/左/右 rim 都落在 PCB 上.
+    #   判据: rim 外缘 (plug 外框半) <= PCB 半 (压在 PCB 上不落空); rim 内缘 (镂空半) >= 元件半 (避元件).
+    rim_w_on_pcb = (BC_PLUG_W / 2 <= PCB_W / 2 + 1e-6) and (BC_PLUG_CAV_W / 2 >= COMP_ENV_W / 2 - 1e-6)
+    rim_h_on_pcb = (BC_PLUG_H / 2 <= PCB_H / 2 + 1e-6) and (BC_PLUG_CAV_H / 2 >= COMP_ENV_H / 2 - 1e-6)
+    print(f"   plug rim 落区 [元件边 .. PCB 边]: 左右 rim 料宽 {BC_PLUG_RIM_W:.2f}mm (外缘 {BC_PLUG_W/2:.1f}≤PCB半 {PCB_W/2:.1f} & 内缘 {BC_PLUG_CAV_W/2:.1f}≥元件半 {COMP_ENV_W/2:.1f}? {rim_w_on_pcb}); "
+          f"上下 rim 料宽 {BC_PLUG_RIM_H:.2f}mm (外缘 {BC_PLUG_H/2:.1f}≤PCB半 {PCB_H/2:.1f} & 内缘 {BC_PLUG_CAV_H/2:.1f}≥元件半 {COMP_ENV_H/2:.1f}? {rim_h_on_pcb})")
+    print(f"   plug rim 四边 (含上下) 都压在 PCB 非元件区? {rim_w_on_pcb and rim_h_on_pcb} -> "
+          f"{'通过(四边都压 PCB)' if rim_w_on_pcb and rim_h_on_pcb else '失败'}")
     # FPC: 板底 24P 排座 vs 后盖底部折回槽对齐.
     fpc_bb = fpc.bounding_box()
     fpc_y = (fpc_bb.min.Y + fpc_bb.max.Y) / 2
