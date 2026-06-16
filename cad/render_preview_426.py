@@ -140,12 +140,12 @@ MAG_COL = {"N": "#1565c0", "S": "#ef6c00"}   # 蓝=N, 橙=S
 
 
 def mark_typec(ax):
-    """在装配视图上用红点 + 箭头标出支架底边 Type-C 壳块 (口朝下 -Y 出线)."""
+    """在装配视图上用红点 + 箭头标出 "支柱下方" Type-C 壳块 (口朝下 -Y 出线)."""
     ax.scatter([TC_X], [TC_Y], [TC_Z], c="#d11", s=70, marker="o",
                depthshade=False, edgecolors="k", zorder=10)
     ax.quiver(TC_X, TC_Y, TC_Z, 0, -14, 0, color="#d11", linewidth=2.2, zorder=11)
     ax.text(TC_X + 2, TC_Y - 12, TC_Z + 4,
-            f"防水 Type-C 壳块\n(壳 {H_W:.0f}×{H_Z:.0f}, 口朝下 -Y)\n体深入 +Y {_E.TYPEC_BODY_DEPTH:.0f}mm",
+            f"防水 Type-C 壳块 (支柱下方)\n(壳 {H_W:.0f}×{H_Z:.0f}, 口朝下 -Y)\n体深入 +Y {_E.TYPEC_BODY_DEPTH:.0f}mm",
             color="#a00", fontsize=8, zorder=12)
 
 
@@ -177,7 +177,7 @@ def mark_pogo(ax):
 # 格 7: 装配等轴 (看整体落位) + POGO + Type-C 标注
 ax_aiso = fig.add_subplot(NR, NC, 7, projection="3d")
 draw_asm(ax_aiso, 18, -65,
-         "Assembly 等轴 (屏顶=显示器顶持平, 屏在左侧外)\n8×Φ8 磁吸合承重(蓝N/橙S) + POGO 供电对位(绿) · Type-C 底边朝下(红)",
+         "Assembly 等轴 (屏顶=显示器顶持平, 屏在左侧外)\n8×Φ8 磁吸合承重(蓝N/橙S) + POGO 供电对位(绿) · Type-C 支柱下方朝下(红)",
          "X (右=朝显示器)", "Y (上)", "Z (朝用户)")
 mark_magnets(ax_aiso)
 mark_pogo(ax_aiso)
@@ -186,7 +186,7 @@ mark_typec(ax_aiso)
 # 格 8: 装配侧视 (沿 -X 看 Y-Z 平面) — 一眼可见 墨水屏与显示器共面、支柱藏背后
 ax_side = fig.add_subplot(NR, NC, 8, projection="3d")
 draw_asm(ax_side, 6, 0,
-         "Assembly 侧视 (沿 -X 看 Y-Z): 墨水屏与显示器正面共面\n支柱/对接板藏屏后; POGO(绿)朝屏; Type-C(红)底边朝下",
+         "Assembly 侧视 (沿 -X 看 Y-Z): 墨水屏与显示器正面共面\n支柱/对接板藏屏后; POGO(绿)朝屏; Type-C(红)支柱下方朝下",
          "X (右=朝显示器)", "Y (上)", "Z (朝用户=+Z)", aspect=(0.35, 1, 1))
 mark_magnets(ax_side, label=False)
 mark_pogo(ax_side)
@@ -251,32 +251,36 @@ ax_pogo.set_title("对接区局部: 8×Φ8 磁(蓝N/橙S, 四角承重) + POGO 4
 mark_magnets(ax_pogo)
 mark_pogo(ax_pogo)
 
-# --- 格 10: Type-C 壳块 (a) 从壳外 -Y 正对看 法兰沉台 + 开孔 (壳厚一眼可见) ---
-#   取 bracket 三角面, 聚焦壳块邻域; 视角 elev≈0 azim=-90 => 沿 +Y 正对壳块 -Y 外面.
-TC_FOCUS_CY = (H_YMIN + H_YMAX) / 2
-br_items = [(col, tri) for (col, tri, lbl) in all_node_tris if lbl == "bracket"]
-def _near_housing(tri, pad=4.0):
-    c = tri.reshape(-1, 3).mean(0)
-    return (abs(c[0] - TC_X) < H_W / 2 + pad and
-            H_YMIN - pad < c[1] < H_YMAX + pad and
-            H_ZBOT - pad < c[2] < H_ZTOP + pad)
-house_items = []
-for col, tri in br_items:
-    keep = np.array([_near_housing(t) for t in tri])
-    if keep.any():
-        house_items.append((col, tri[keep]))
-foc_ctr_a = (TC_X, TC_FOCUS_CY, H_CZ); foc_r_a = max(H_W, H_Z) / 2 + 5
-ax_tca = fig.add_subplot(NR, NC, 10, projection="3d")
-_draw_subset(ax_tca, house_items, 4, -90, foc_ctr_a, foc_r_a, aspect=(1, 1, 1))
-ax_tca.set_title(f"(a) Type-C 壳块 -Y 正对 (从壳外向上看):\n"
-                 f"法兰沉台 {_E.TYPEC_FLANGE_W:.1f}×{_E.TYPEC_FLANGE_H:.1f} + 开孔 "
-                 f"{_E.TYPEC_PANEL_W:.1f}×{_E.TYPEC_PANEL_H:.1f}(R{_E.TYPEC_PANEL_R})", fontsize=9)
-# 标壳厚 (Z 向): 双箭头.
-ax_tca.plot([TC_X - H_W / 2 - 2]*2, [H_YMIN]*2, [H_ZBOT, H_ZTOP],
-            color="#a00", linewidth=2.0, zorder=12)
-ax_tca.text(TC_X - H_W / 2 - 3, H_YMIN, H_CZ,
-            f"壳 Z 厚\n{H_Z:.1f}mm", color="#a00", fontsize=8, zorder=12)
-mark_typec(ax_tca)
+# --- 格 10: 后盖 Φ8 磁腔剖切 (修 bug1) — 一眼看 "磁腔内侧敞开, 磁从内侧装入; 外侧留薄壁" ---
+#   取独立 back_cover STL (局部坐标 z: 0=外侧朝支架, +z=内侧朝 PCB), 过一列磁心 X 竖切, 沿 +X 看 Y-Z 剖面.
+#   修 bug1: 磁柱顶降到与腔顶齐平 => 内侧 (+z) 敞开; 外侧 (z<0.8) 留薄壁透磁.
+br_items = [(col, tri) for (col, tri, lbl) in all_node_tris if lbl == "bracket"]   # 供格11/12 复用
+bc_tris = load_stl(f"{OUT}/back_cover.stl")
+MAG_OW = _E.MAG_OUTER_WALL; MAG_T = _E.MAG_T
+BC_MAG_X = _E.MAG_COL_X            # 磁列局部 X (±MAG_COL_X)
+# 过 X=BC_MAG_X-0.2 切, 保留 X>=该面半, 沿 +X 看 (azim=-90) => Y-Z 剖面露磁腔内外开口.
+BC_CUT_X = BC_MAG_X - 0.2
+# 该磁列 Y 中心 (取上排磁): DOCK_CENTER_Y + MAG_INSET_Y
+BC_MAG_Y = _E.DOCK_CENTER_Y + _E.MAG_INSET_Y
+bc_sect = []
+for t in bc_tris:
+    if t.reshape(-1, 3)[:, 0].mean() >= BC_CUT_X:
+        bc_sect.append(t)
+bc_sect = np.array(bc_sect)
+ax_bcmag = fig.add_subplot(NR, NC, 10, projection="3d")
+_draw_subset(ax_bcmag, [("#a8c8a0", bc_sect)], 6, -90,
+             (BC_MAG_X, BC_MAG_Y, (MAG_OW + MAG_T) / 2), 16.0, aspect=(1, 1.4, 1))
+ax_bcmag.set_title("后盖 Φ8 磁腔剖切 (修 bug1, 沿 +X 看 Y-Z):\n"
+                   f"内侧(+z, 朝PCB)敞开 磁从内侧压入 · 外侧(z<{MAG_OW})留薄壁透磁(磁柱顶已去 0.5 盖)",
+                   fontsize=9)
+# 内侧装入箭头 (从内侧 +z 朝 -z 压入磁铁)
+ax_bcmag.quiver(BC_MAG_X, BC_MAG_Y, MAG_OW + MAG_T + 4, 0, 0, -3.0, color="#b00", linewidth=2.4, zorder=12)
+ax_bcmag.text(BC_MAG_X, BC_MAG_Y, MAG_OW + MAG_T + 4.5,
+              "磁从内侧 (+z) 压入\n(腔内侧敞开)", color="#900", fontsize=8, zorder=12)
+# 外侧薄壁标注
+ax_bcmag.plot([BC_MAG_X]*2, [BC_MAG_Y]*2, [0, MAG_OW], color="#06c", linewidth=3.0, zorder=12)
+ax_bcmag.text(BC_MAG_X, BC_MAG_Y, -2.5, f"外侧薄壁 {MAG_OW}\n(朝支架, 透磁)",
+              color="#04a", fontsize=8, zorder=12)
 
 # --- 格 11: Type-C 壳块 (b) 剖切 (过 X=TC_X 竖直面), 露壳厚 + 14mm 体腔 + 走线腔 ---
 #   过 X=TC_X 切, 保留 X>=TC_X-0.3 半, 沿 -X 看体腔内部 (Y-Z 剖面).
@@ -291,8 +295,8 @@ TC_FOCUS_Y = (H_YMIN + _mate["channel_y_bot"]) / 2
 foc_ctr_b = (TC_X, TC_FOCUS_Y, H_CZ); foc_r_b = 16.0
 ax_tcb = fig.add_subplot(NR, NC, 11, projection="3d")
 _draw_subset(ax_tcb, sect, 8, -100, foc_ctr_b, foc_r_b, aspect=(1, 1.2, 0.9))
-ax_tcb.set_title(f"(b) Type-C 壳块剖切 (过 X={TC_X:.0f}, 沿 -X 看 Y-Z):\n"
-                 f"壳厚 {H_Z:.1f} 包裹 · 体腔深入 +Y {_E.TYPEC_BODY_DEPTH:.0f}mm · 上接走线腔", fontsize=9)
+ax_tcb.set_title(f"(b) Type-C 壳块剖切 (支柱下方, 过 X={TC_X:.0f}, 沿 -X 看 Y-Z):\n"
+                 f"壳厚 {H_Z:.1f} 包裹 · 体腔深入 +Y {_E.TYPEC_BODY_DEPTH:.0f}mm · 经熔接颈上接支柱/走线腔", fontsize=9)
 # 标体腔深 (Y 向) + 壳厚 (Z 向) 双箭头.
 cav_y0 = H_YMIN + _E.TYPEC_FLANGE_T
 cav_y1 = cav_y0 + _E.TYPEC_BODY_DEPTH
@@ -303,22 +307,33 @@ ax_tcb.plot([TC_X]*2, [H_YMIN - 1]*2, [H_ZBOT, H_ZTOP], color="#a00", linewidth=
 ax_tcb.text(TC_X, H_YMIN - 2, H_CZ, f"壳厚 {H_Z:.1f}", color="#a00", fontsize=8, zorder=12)
 mark_typec(ax_tcb)
 
-# --- 格 12: 文字说明 (修复要点) ---
-ax_txt = fig.add_subplot(NR, NC, 12)
-ax_txt.axis("off")
-ax_txt.text(0.02, 0.98,
-            "Type-C 壳体 bug 修复要点\n"
-            "─────────────────────\n"
-            f"bug: 对接板 MATE_T={_E.MATE_T} (Z) < 法兰 {_E.TYPEC_FLANGE_H} (Z)\n"
-            "  旧方案把母座直接切进 5mm 薄板 => 切穿, 无壳\n\n"
-            "fix: 底部长出专用实体壳块 (boss) 包裹母座:\n"
-            f"  X 宽 {H_W:.1f} (法兰{_E.TYPEC_FLANGE_W}+2壁{H_WALL})\n"
-            f"  Z 厚 {H_Z:.1f} (法兰{_E.TYPEC_FLANGE_H}+2壁{H_WALL})\n"
-            f"  Y 深 {H_Y:.1f}; 体腔深 {_E.TYPEC_BODY_DEPTH}mm\n"
-            f"  +Z 面 {H_ZTOP:.1f} < 屏后表面 {_mate['back_outer_z']:.1f} (藏屏后)\n"
-            "  与支架熔为一体 (单一实体); 开孔真穿透",
-            fontsize=9, va="top", ha="left",
-            color="#222", transform=ax_txt.transAxes)
+# --- 格 12: POGO 剖切 (过 Y=POGO_CY 水平面, 沿 +Y 看 X-Z 剖面) — 一眼看 "POGO 从 -Z 背面装入 + 针孔朝屏 +Z" ---
+#   修 bug2 验证: 本体凹腔从 -Z 背面 (z_bot) 敞开; +Z 贴合面只留薄壁 + 4 针孔; 走线腔在 -Z 背面.
+#   过 Y=POGO_CY-0.3 切, 保留 Y>=该面半, 沿 +Y 看 (elev≈0 azim=-90) => X-Z 剖面露 POGO 腔上下开口.
+P_ZBOT = _mate["z_bot"]; P_ZTOP = _mate["z_top"]
+P_FLOOR = _mate["pogo_pocket_floor_z"]
+CUT_Y = POGO_CY - 0.2
+pogo_sect = []
+for col, tri in br_items:
+    cy = tri.reshape(-1, 3)[:, 1].reshape(-1, 3).mean(1)
+    keep = tri[cy >= CUT_Y]
+    if len(keep):
+        pogo_sect.append((col, keep))
+pfoc_ctr = (POGO_CX, POGO_CY, (P_ZBOT + P_ZTOP) / 2); pfoc_r = 14.0
+ax_pgsec = fig.add_subplot(NR, NC, 12, projection="3d")
+_draw_subset(ax_pgsec, pogo_sect, 6, -90, pfoc_ctr, pfoc_r, aspect=(1.4, 1, 1))
+ax_pgsec.set_title("POGO 剖切 (过 POGO 中心, 沿 +Y 看 X-Z): 修 bug2\n"
+                   "本体凹腔 -Z 背面敞开装入(▼) · 贴合面薄壁 4 针孔朝屏 +Z(▲) · 走线腔在 -Z 背面",
+                   fontsize=9)
+# -Z 背面装入箭头 (从背面 z_bot 朝 +Z 推入)
+ax_pgsec.quiver(POGO_CX, POGO_CY, P_ZBOT - 4, 0, 0, 3.2, color="#b00", linewidth=2.4, zorder=12)
+ax_pgsec.text(POGO_CX, POGO_CY, P_ZBOT - 5,
+              "POGO 从 -Z 背面装入\n(焊脚/飞线朝背面)", color="#900", fontsize=8, zorder=12)
+# +Z 针孔凸出朝屏箭头
+ax_pgsec.quiver(POGO_CX, POGO_CY, P_ZTOP, 0, 0, 4.0, color="#0a0", linewidth=2.4, zorder=12)
+ax_pgsec.text(POGO_CX, POGO_CY, P_ZTOP + 4,
+              f"4 针穿薄壁针孔\n凸出朝屏 +Z (针尖 {POGO_PIN_Z:.1f})", color="#070", fontsize=8, zorder=12)
+mark_pogo(ax_pgsec)
 
 plt.tight_layout()
 plt.savefig(f"{OUT}/preview_426.png", dpi=115)
