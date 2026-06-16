@@ -9,19 +9,6 @@
 
 static const char *TAG = "ssd1677_test";
 
-// 把"第 i 个黑块"图案整帧流写到指定 RAM(0x24 写新帧 / 0x26 写局刷基准), 图案只此一处
-static void selftest_write_block_frame(int i, uint8_t ram_cmd)
-{
-    uint8_t row[SSD_ROW_BYTES];
-    ssd1677_set_ram_counter();
-    hal_spi_cmd(ram_cmd);
-    for (int y = 0; y < SSD_HEIGHT; y++) {
-        for (int b = 0; b < SSD_ROW_BYTES; b++)
-            row[b] = (y / 40 == 2 && b == (i % SSD_ROW_BYTES)) ? 0xFF : 0x00;
-        ssd1677_ram_row(row);
-    }
-}
-
 void ssd1677_selftest_run(void)
 {
     static uint8_t row[SSD_ROW_BYTES];   // 100B, bit=1=黑(与 hub 同约定)
@@ -61,25 +48,33 @@ void ssd1677_selftest_run(void)
     ssd1677_update_full();
     vTaskDelay(pdMS_TO_TICKS(2000));
 
-    // ---- 局刷校验: 全刷基准 → 连续局刷走动方块 → 观察不闪/残影/到 30 次洗净 ----
-    ESP_LOGI(TAG, "局刷校验: 全刷基准(全白)");
+    // ---- 区域局刷验证: 全白基准 → 只在中间 100 栅行窗口里翻黑/白 → 看窗口外白底是否保持 ----
+    // 假设: SSD1677 标准局刷重刷"窗口内"每个像素, 故只要把窗口收到变化区, 窗口外就不通电、
+    // 不会累积发灰。若窗口外保持白 → 证明"区域局刷"是消灰正解(方案 B)。
+    ESP_LOGI(TAG, "区域局刷验证: 全刷基准(全白)");
     memset(row, 0x00, sizeof(row));
     ssd1677_ram_begin();
     for (int y = 0; y < SSD_HEIGHT; y++) ssd1677_ram_row(row);
     ssd1677_update_full();
-    // 0x26 基准 = 全白
-    ssd1677_set_ram_counter();
+    ssd1677_set_ram_counter();              // 0x26 基准 = 全白
     hal_spi_cmd(0x26);
-    memset(row, 0x00, sizeof(row));
     for (int y = 0; y < SSD_HEIGHT; y++) ssd1677_ram_row(row);
 
-    for (int i = 0; i < 35; i++) {
-        ESP_LOGI(TAG, "局刷 #%d", i + 1);
-        selftest_write_block_frame(i, 0x24);   // 写新帧
-        ssd1677_update_partial();              // 快波形局刷
-        selftest_write_block_frame(i, 0x26);   // 同步下一轮基准
-        vTaskDelay(pdMS_TO_TICKS(700));
+    const int wy_lo = 190, wy_hi = 289, wn = wy_hi - wy_lo + 1;   // 中间 100 栅行
+    for (int i = 0; i < 20; i++) {
+        uint8_t v = (i & 1) ? 0xFF : 0x00;   // 窗口内交替: 黑/白
+        ESP_LOGI(TAG, "区域局刷 #%d (窗内%s, 窗外应恒白)", i + 1, v ? "黑" : "白");
+        ssd1677_set_window_rows(wy_lo, wy_hi);   // 窗口=中间 100 行
+        hal_spi_cmd(0x24);
+        memset(row, v, sizeof(row));
+        for (int y = 0; y < wn; y++) ssd1677_ram_row(row);
+        ssd1677_update_partial();
+        ssd1677_set_window_rows(wy_lo, wy_hi);   // 同步 0x26 同窗口
+        hal_spi_cmd(0x26);
+        for (int y = 0; y < wn; y++) ssd1677_ram_row(row);
+        vTaskDelay(pdMS_TO_TICKS(800));
     }
+    ssd1677_set_window_rows(0, SSD_HEIGHT - 1);   // 恢复整屏窗口
 
     ESP_LOGI(TAG, "selftest 结束");
 }

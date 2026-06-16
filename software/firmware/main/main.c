@@ -13,7 +13,7 @@
 
 static const char *TAG = "inkpulse";
 
-#define PARTIAL_BEFORE_FULL 30   // 连续局刷达此次数 → 强制一次全刷洗残影
+#define PARTIAL_BEFORE_FULL 8    // 连续局刷达此次数 → 强制一次全刷洗残影/灰(过渡值, 待厂商波形)
 
 static uint8_t s_framebuf[96000];
 

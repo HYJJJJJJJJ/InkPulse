@@ -20,3 +20,4 @@ void ssd1677_ram_row(const uint8_t *row);        // 发一行(SSD_ROW_BYTES=100B
 bool ssd1677_update_partial(void);                 // 0x22(0xCF)+0x20 快波形局刷 + 等忙; 返回 false=超时
 void ssd1677_sync_old_ram(const uint8_t *plane);   // 把当前帧写入 0x26(下次局刷基准), 行式流写
 void ssd1677_set_ram_counter(void);   // set RAM X/Y counter 到原点(供 selftest 写 0x26)
+void ssd1677_set_window_rows(int y_lo, int y_hi);  // 局刷窗口=栅(Y)行[y_lo,y_hi]全X; 窗口外不通电
