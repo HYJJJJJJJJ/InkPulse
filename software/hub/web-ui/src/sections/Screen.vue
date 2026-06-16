@@ -80,6 +80,8 @@ function widgetLabel(name) {
 const gridStyle = computed(() => ({
   gridTemplateColumns: `repeat(${grid.value.cols}, 1fr)`,
   gridTemplateRows: `repeat(${grid.value.rows}, 1fr)`,
+  // 编辑框形状跟随真机网格(7.5寸横版 8x6 / 4.2寸竖版 4x8), 不再写死 5:3
+  aspectRatio: `${grid.value.cols} / ${grid.value.rows}`,
 }))
 function cellStyle(cell) { return { gridColumn: `${cell.c + 1}`, gridRow: `${cell.r + 1}` } }
 function blockStyle(p) {
@@ -211,7 +213,7 @@ onMounted(async () => { await loadConfig(); await loadStore() })
 .edgrid {
   display: grid; gap: 5px; padding: 6px;
   background: var(--paper); border: 1px solid var(--line-strong); border-radius: 12px;
-  aspect-ratio: 5 / 3; box-shadow: inset 0 1px 3px rgba(40,34,24,.05);
+  box-shadow: inset 0 1px 3px rgba(40,34,24,.05);   /* 宽高比由 gridStyle 动态绑定 */
 }
 .gcell {
   border: 1px dashed var(--line-strong); border-radius: 6px; background: transparent;

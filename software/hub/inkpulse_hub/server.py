@@ -39,6 +39,10 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.hub = state
     app.state.cfg = cfg
 
+    def _lpid() -> str:
+        """web 布局/网格跟随真机配对的 panel; 未配对回退默认 profile。"""
+        return cfg.active_panel or L.DEFAULT_PID
+
     @app.middleware("http")
     async def _bump_web_on_write(request: Request, call_next):
         """任何成功的写请求(配置/数据)都递增 web 同步令牌, 让网页经 SSE 自动刷新。
@@ -61,6 +65,10 @@ def create_app(cfg: Config) -> FastAPI:
             state.set_env(t, h, rssi)
         if t is not None:
             state.env_history.append(time.time(), t)
+        # 真机上报屏型 = web 各处的事实源; 变化即持久化(跨重启记住配对)。
+        if panel and panel != cfg.active_panel:
+            cfg.active_panel = panel
+            save_runtime(cfg, cfg.runtime_store)
         f = render_frame(cfg, state.build_render_state(), get_profile(panel))
         if request.headers.get("if-none-match") == f.etag:
             return Response(status_code=304)   # 设备复用缓存, 屏上内容未变, 不更新记录
@@ -74,7 +82,9 @@ def create_app(cfg: Config) -> FastAPI:
 
     @app.get("/preview.png")
     def preview(panel: str | None = None):
-        f = render_frame(cfg, state.build_render_state(), get_profile(panel))
+        # 显式 panel 优先; 否则跟随真机配对的屏型(而非写死 7.5 寸)。
+        f = render_frame(cfg, state.build_render_state(),
+                         get_profile(panel or cfg.active_panel or None))
         return Response(content=f.png_bytes, media_type="image/png")
 
     # ---- 字体验证: 运行时热切换 CJK 字体, 设备下次拉帧即生效 ----
@@ -260,13 +270,13 @@ def create_app(cfg: Config) -> FastAPI:
     @app.get("/api/config")
     def api_config_get():
         data = {f: getattr(cfg, f) for f in RUNTIME_FIELDS}
-        data["layouts"] = list(L.load_store(cfg.layouts_store)["layouts"].keys())
+        data["layouts"] = list(L.load_store(cfg.layouts_store, _lpid())["layouts"].keys())
         return data
 
     @app.post("/api/config")
     async def api_config_set(request: Request):
         data = await request.json()
-        names = L.load_store(cfg.layouts_store)["layouts"]
+        names = L.load_store(cfg.layouts_store, _lpid())["layouts"]
         if "layout_name" in data and data["layout_name"] not in names:
             return JSONResponse({"error": "unknown layout"}, status_code=400)
         for k in RUNTIME_FIELDS:
@@ -278,7 +288,7 @@ def create_app(cfg: Config) -> FastAPI:
     # ---- 布局编辑: 网格 + widget 目录 + 自定义布局 CRUD ----
     @app.get("/api/layouts")
     def api_layouts_get():
-        store = L.load_store(cfg.layouts_store)
+        store = L.load_store(cfg.layouts_store, _lpid())
         widgets = [{"name": s.name, "label": s.label,
                     "default_span": s.default_span, "params": s.params}
                    for s in REGISTRY.values()]
@@ -288,7 +298,7 @@ def create_app(cfg: Config) -> FastAPI:
     async def api_layouts_put(name: str, request: Request):
         data = await request.json()
         placements = data.get("placements", [])
-        grid = L.load_store(cfg.layouts_store)["grid"]
+        grid = L.load_store(cfg.layouts_store, _lpid())["grid"]
         for p in placements:
             if p.get("widget") not in REGISTRY:
                 return JSONResponse({"error": f"unknown widget {p.get('widget')}"}, status_code=400)
@@ -301,7 +311,7 @@ def create_app(cfg: Config) -> FastAPI:
                     and col + cs <= grid["cols"] and row + rs <= grid["rows"]):
                 return JSONResponse({"error": "out of grid"}, status_code=400)
         try:
-            L.save_layout(cfg.layouts_store, name, placements)
+            L.save_layout(cfg.layouts_store, name, placements, profile=_lpid())
         except ValueError as e:
             return JSONResponse({"error": str(e)}, status_code=400)
         return {"ok": True}
@@ -309,7 +319,7 @@ def create_app(cfg: Config) -> FastAPI:
     @app.delete("/api/layouts/{name}")
     def api_layouts_delete(name: str):
         try:
-            L.delete_layout(cfg.layouts_store, name)
+            L.delete_layout(cfg.layouts_store, name, profile=_lpid())
         except ValueError as e:
             return JSONResponse({"error": str(e)}, status_code=400)
         return {"ok": True}
@@ -362,8 +372,9 @@ def create_app(cfg: Config) -> FastAPI:
     def api_device_frame():
         if state.device_frame_png is not None:
             return Response(content=state.device_frame_png, media_type="image/png")
-        # 设备尚未拉过帧: 回退到当前预览, 不报错
-        f = render_frame(cfg, state.build_render_state(), get_profile(None))
+        # 设备尚未拉过帧: 回退到当前预览(按配对屏型, 而非写死 7.5 寸), 不报错
+        f = render_frame(cfg, state.build_render_state(),
+                         get_profile(cfg.active_panel or None))
         return Response(content=f.png_bytes, media_type="image/png")
 
     @app.get("/api/device/status")
@@ -377,6 +388,7 @@ def create_app(cfg: Config) -> FastAPI:
             "temp": env.get("temp"),
             "humidity": env.get("humidity"),
             "etag": state.device_frame_etag,
+            "panel": cfg.active_panel or None,
         }
 
     # ---- SSE 实时流: web 同步令牌变化即推送, 网页据此自动刷新预览与真机帧 ----

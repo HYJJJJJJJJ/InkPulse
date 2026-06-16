@@ -35,6 +35,9 @@ class Config:
     usage_budget_usd: Optional[float] = None
     # 钉住显示的照片文件名(空=按时间自动轮换);photo 布局用
     photo_pinned: str = ""
+    # 真机上报的当前屏 panel id(由设备 /frame?panel= 自动写入并持久化);
+    # 空=尚未配对, web 各处(预览/布局编辑/真机帧回退)回退默认 profile。
+    active_panel: str = ""
 
 
 def load_config(path: Optional[str]) -> Config:
@@ -73,6 +76,7 @@ RUNTIME_FIELDS = [
     "photo_pinned",
     "weather_lat", "weather_lon", "weather_place",
     "market_symbols",
+    "active_panel",
 ]
 
 
