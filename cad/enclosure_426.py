@@ -165,9 +165,23 @@ SCR_CAV_W = SCREEN_W + 2 * FIT_GAP          # 62.37 + 0.8 = 63.17
 SCR_CAV_H = SCREEN_H + 2 * FIT_GAP          # 105.33 + 0.8 = 106.13
 SCR_CAV_CORNER_R = 1.5                       # 屏容腔四角小圆角
 
-# --- 屏体外形 = 屏容腔 + 两侧壁厚 ---
-BEZEL_OUT_W = SCR_CAV_W + 2 * WALL          # 63.17 + 4.0 = 67.17 (~68)
-BEZEL_OUT_H = SCR_CAV_H + 2 * WALL          # 106.13 + 4.0 = 110.13 (~116 目标偏大, 见报告判断)
+# --- 自攻柱几何 (M2; 此处先定义, 供 "外形派生" 用) ---
+#   修 bug "M2 螺柱戳墨水屏": 旧方案 4 角柱中心 (±29.58,±51.06) 落在墨水屏 footprint
+#   (±31.18,±52.66) 之内, 穿腔时整柱 (Φ4.5) 与屏料重合戳屏. 用户决策: 加宽边框,
+#   把 4 螺柱移到屏外. 故 boss 中心由 "屏半宽/半高 + 屏到柱间隙 + 柱半径" 派生 (在屏外),
+#   外形 BEZEL_OUT_W/H 再由 "boss 外缘 + 外壁" 派生, 全程无魔数.
+BOSS_D = 4.5                                 # M2 自攻柱外径
+BOSS_SCREEN_CLEAR = 0.5                      # 柱(整柱外缘) 到墨水屏 footprint 的最小间隙 (>=0.5)
+# 4 角柱中心 (屏对角外侧): 柱内缘 = 屏边 + 间隙 => 柱心 = 屏半 + 间隙 + 柱半径.
+#   => 整柱 (Φ BOSS_D) 与屏 footprint 在 X、Y 两轴都分离, 留 BOSS_SCREEN_CLEAR 间隙.
+BOSS_X = SCREEN_W / 2 + BOSS_SCREEN_CLEAR + BOSS_D / 2   # ≈31.18+0.5+2.25 = 33.94 (>屏半 31.18)
+BOSS_Y = SCREEN_H / 2 + BOSS_SCREEN_CLEAR + BOSS_D / 2   # ≈52.66+0.5+2.25 = 55.41 (>屏半 52.66)
+
+# --- 屏体外形: 取 "屏容腔+两侧壁" 与 "容下角柱+外壁" 的较大者 (边框加宽到容柱) ---
+#   加宽的是 SCR_CAV 外侧的边框 (把 4 螺柱塞进屏腔与外壁之间的加宽边框), 屏腔本身不变.
+#   外形半宽 >= 角柱外缘 (BOSS_X+BOSS_D/2) + 外壁 WALL.
+BEZEL_OUT_W = max(SCR_CAV_W + 2 * WALL, 2 * (BOSS_X + BOSS_D / 2 + WALL))   # ≈76.37
+BEZEL_OUT_H = max(SCR_CAV_H + 2 * WALL, 2 * (BOSS_Y + BOSS_D / 2 + WALL))   # ≈119.33
 CORNER_R = 4.0                               # 外形四角圆角 (美观)
 
 # --- 视窗 = AA + 余量, 水平居中, 纵向上偏 ---
@@ -240,12 +254,13 @@ FPC_CONN_W = 14.0              # 24P 0.5mm 间距排座本体宽 (含壳, 估值
 FPC_CONN_LOCAL = (0.0, -PCB_H / 2)   # 板底边中点 (板局部)
 
 # --- 自攻柱 (bezel 四角 boss + 后盖通孔) ---
-BOSS_D = 4.5                                 # M2 自攻柱外径
+#   注: BOSS_D / BOSS_X / BOSS_Y / BOSS_SCREEN_CLEAR 已在 "外形派生" 区先行定义 (boss 在屏外,
+#       外形由 boss 外缘派生). 此处只补与几何无关的螺孔径参数. 角柱外缘到外壁内沿留 WALL.
 BOSS_PILOT_D = 1.5                           # M2 自攻底孔 (留 0.2 余量)
 SCREW_CLEAR_D = 2.4                          # 后盖侧 M2 通孔
-BOSS_OFFSET = 4.0                            # 柱心从外形角内缩
-BOSS_X = BEZEL_OUT_W / 2 - BOSS_OFFSET       # 角柱 X
-BOSS_Y = BEZEL_OUT_H / 2 - BOSS_OFFSET       # 角柱 Y
+# 校验: 角柱外缘到外形边的余量 = 外形半 - (柱心+柱半) (应 ≈ WALL, 即柱外缘贴外壁内沿留壁).
+BOSS_EDGE_MARGIN_X = BEZEL_OUT_W / 2 - (BOSS_X + BOSS_D / 2)   # ≈ WALL
+BOSS_EDGE_MARGIN_Y = BEZEL_OUT_H / 2 - (BOSS_Y + BOSS_D / 2)   # ≈ WALL
 
 # --- 屏体受电侧对接区 (后盖): 8×Φ8 磁 (4 后盖 + 4 支架镜像) + POGO 受电 ---
 # 用户要求恢复: 后盖对接区 = 4×Φ8 磁腔 (吸合/承重) + 4 触点 pad 窗 + 2 钢吸片腔.
@@ -1046,6 +1061,128 @@ def make_monitor_corner():
 
 
 # ============================================================
+# POGO 磁吸连接器实体 (装配模拟用, 非打印件)
+# ============================================================
+#   照 POGO结构1/2.png 实测: 本体 20.44(X)×4.0(Y)×2.0(Z, 圆角端) 塑壳, 内嵌 N/S 磁
+#   (跨 13.54, 估 Φ3.0), 中央 4 弹针 (Φ0.7 针尖, 凸出 1.5, 节距 2.54, 跨 7.62),
+#   两端 2× Φ1.5 安装耳孔 (跨 17.54). 建在世界系 (bracket 在装配里即世界原位),
+#   坐落支架对接面 POGO 凹腔: 本体 (含 N/S 磁) 顶面贴凹腔顶 pogo_pocket_floor_z,
+#   4 针由此向 +Z (屏体侧) 凸出 1.5 穿贴合面针孔, 与后盖 4 pad 接触.
+POGO_MAG_VIS_D = 3.0           # N/S 磁可见直径 (图纸未注极径, 估值; ≤本体宽 4.0)
+POGO_MAG_PROUD = 0.2           # N/S 磁凸出本体顶面量 (贴屏侧, 助吸合)
+
+
+def make_pogo_connector():
+    """POGO 连接器实体 (世界系), 返回 Compound(本体 + N/S 磁 + 4 弹针)."""
+    m = make_bracket.mate
+    cx, cy = m["pogo_cx"], m["pogo_cy"]
+    top_z = m["pogo_pocket_floor_z"]              # 本体/磁/针 共同的针基面 (贴凹腔顶, 朝屏 +Z)
+    # --- 塑壳本体: 圆角矩形棒, 顶面齐 top_z, 向 -Z 占 POGO_BODY_H ---
+    with BuildPart() as _body:
+        with Locations((cx, cy, top_z)):
+            Box(POGO_LEN, POGO_WID, POGO_BODY_H,
+                align=(Align.CENTER, Align.CENTER, Align.MAX))
+        # 竖向四棱倒圆 -> racetrack 端 (须在挖孔前选棱, 避免选到孔壁)
+        try:
+            fillet(_body.edges().filter_by(Axis.Z), radius=POGO_WID / 2 - 0.01)
+        except Exception as _e:
+            print(f"   [POGO本体倒角] 跳过: {_e}")
+        # 2× Φ1.5 安装耳孔 (贯穿本体厚)
+        for sgn in (-1, +1):
+            with Locations((cx + sgn * POGO_MOUNT_SPAN / 2, cy, top_z + 0.01)):
+                Cylinder(POGO_MOUNT_D / 2, POGO_BODY_H + 0.02,
+                         align=(Align.CENTER, Align.CENTER, Align.MAX),
+                         mode=Mode.SUBTRACT)
+        # N/S 磁沉孔 (从顶面 +Z 朝屏侧沉 0.6, 供嵌磁; 单独建磁柱填充)
+        for sgn in (-1, +1):
+            with Locations((cx + sgn * POGO_MAG_SPAN / 2, cy, top_z + 0.01)):
+                Cylinder(POGO_MAG_VIS_D / 2, 0.6 + 0.01,
+                         align=(Align.CENTER, Align.CENTER, Align.MAX),
+                         mode=Mode.SUBTRACT)
+    # --- N/S 磁柱: 填沉孔 + 凸出顶面 POGO_MAG_PROUD (贴屏侧吸合) ---
+    with BuildPart() as _mags:
+        for sgn in (-1, +1):
+            with Locations((cx + sgn * POGO_MAG_SPAN / 2, cy, top_z - 0.6)):
+                Cylinder(POGO_MAG_VIS_D / 2, 0.6 + POGO_MAG_PROUD,
+                         align=(Align.CENTER, Align.CENTER, Align.MIN))
+    # --- 4 弹针: Φ0.7, 从针基面 top_z 向 +Z 凸出 POGO_PIN_PROTRUDE ---
+    with BuildPart() as _pins:
+        for i in range(POGO_PIN_N):
+            px = cx + i * POGO_PIN_PITCH - POGO_PIN_SPAN / 2
+            with Locations((px, cy, top_z)):
+                Cylinder(POGO_PIN_TIP_D / 2, POGO_PIN_PROTRUDE,
+                         align=(Align.CENTER, Align.CENTER, Align.MIN))
+    body = _body.part; body.label = "pogo_body"
+    mags = _mags.part; mags.label = "pogo_magnets"
+    pins = _pins.part; pins.label = "pogo_pins"
+    return Compound(label="pogo_connector", children=[body, mags, pins])
+
+
+# ============================================================
+# 防水 Type-C 母座实体 (装配模拟用, 非打印件)
+# ============================================================
+#   照 TypeC母座结构.png 实测: 前法兰 16.70(X)×10.30(Z)×2.0(Y厚) 贴面板, 中央跑道形
+#   开口 (12.0 宽) 内含 USB-C 舌片; 金属壳体断面 ~13.6×4.3, 深入 14mm; 背面 6 飞线出.
+#   建在世界系: 法兰前面齐支架底边壳块外面 m["bottom_y"] (口朝 -Y 朝下), 体腔向 +Y 深入.
+TYPEC_FLANGE_T_REAL = 2.0      # 法兰盘实厚 (图纸 2.00; 注: 壳体沉台深参数 TYPEC_FLANGE_T=1.2)
+TYPEC_SHELL_W = 13.6           # 金属壳体断面宽 (X, ≈面板开孔宽)
+TYPEC_SHELL_H = 4.3            # 金属壳体断面高 (Z, ≈面板开孔高)
+TYPEC_MOUTH_W = 12.0           # 插口跑道形可见宽 (X, 图纸 12.00)
+TYPEC_MOUTH_H = 3.2            # 插口跑道形可见高 (Z)
+TYPEC_MOUTH_R = 1.3            # 插口圆角 R
+TYPEC_MOUTH_DEPTH = 5.5        # 插口凹深 (沿 +Y)
+TYPEC_TONGUE_W = 8.0           # USB-C 舌片宽 (X)
+TYPEC_TONGUE_T = 0.7           # 舌片厚 (Z)
+TYPEC_CABLE_D = 4.0            # 6 飞线束可见直径
+
+
+def make_typec_receptacle():
+    """防水 Type-C 母座实体 (世界系), 返回 Compound(壳体+法兰+舌片 + 飞线束)."""
+    m = make_bracket.mate
+    cx, cz = m["tc_cx"], m["tc_cz"]
+    y_face = m["bottom_y"]                         # 法兰前面 (壳块外面, 口朝 -Y)
+    shell_len = TYPEC_FLANGE_T_REAL + TYPEC_BODY_DEPTH    # 壳体总深 (前面齐 y_face 起算)
+    with BuildPart() as _recept:
+        # (1) 金属壳体: 断面 13.6×4.3, 从 y_face 向 +Y 深入 shell_len
+        with Locations((cx, y_face, cz)):
+            Box(TYPEC_SHELL_W, shell_len, TYPEC_SHELL_H,
+                align=(Align.CENTER, Align.MIN, Align.CENTER))
+        # (2) 前法兰盘: 16.7×10.3, 厚 2.0, 前面齐 y_face, 包住壳体前端
+        with Locations((cx, y_face, cz)):
+            Box(TYPEC_FLANGE_W, TYPEC_FLANGE_T_REAL, TYPEC_FLANGE_H,
+                align=(Align.CENTER, Align.MIN, Align.CENTER))
+        try:
+            fillet(_recept.edges().filter_by(Axis.Y).group_by(
+                lambda e: e.length)[-1], radius=1.0)    # 法兰四角沿 Y 棱倒圆
+        except Exception as _e:
+            print(f"   [Type-C法兰倒角] 跳过: {_e}")
+        # (3) 跑道形插口凹腔: 从前面 (y_face) 向 +Y 掏 TYPEC_MOUTH_DEPTH
+        with BuildSketch(Plane.XZ.offset(-y_face)) as _mouth:
+            with Locations((cx, cz)):
+                Rectangle(TYPEC_MOUTH_W, TYPEC_MOUTH_H)
+            fillet(_mouth.vertices(), radius=TYPEC_MOUTH_R)
+        extrude(amount=-TYPEC_MOUTH_DEPTH, mode=Mode.SUBTRACT)
+        # (4) USB-C 舌片: 从凹腔底 (y_face+MOUTH_DEPTH) 向 -Y 伸, 居中, 留口不到沿
+        tongue_floor = y_face + TYPEC_MOUTH_DEPTH
+        tongue_len = TYPEC_MOUTH_DEPTH - 1.5
+        with Locations((cx, tongue_floor, cz)):
+            Box(TYPEC_TONGUE_W, tongue_len, TYPEC_TONGUE_T,
+                align=(Align.CENTER, Align.MAX, Align.CENTER))
+    # (5) 6 飞线束 (单独件, 黑): 从壳体背面 (y_face+shell_len) 向 +Y 伸一小段
+    with BuildPart() as _cable:
+        with Locations((cx, y_face + shell_len, cz)):
+            Box(TYPEC_CABLE_D + 4.0, 3.0, TYPEC_CABLE_D,
+                align=(Align.CENTER, Align.MIN, Align.CENTER))
+        try:
+            fillet(_cable.edges().filter_by(Axis.X), radius=1.2)
+        except Exception:
+            pass
+    recept = _recept.part; recept.label = "typec_shell"
+    cable = _cable.part; cable.label = "typec_cable"
+    return Compound(label="typec_receptacle", children=[recept, cable])
+
+
+# ============================================================
 # 装配体: 屏体磁吸贴合支架, 支架抱住显示器左上角参考块
 # ============================================================
 def body_placement():
@@ -1116,8 +1253,13 @@ def make_assembly_context(bezel, back_cover, bracket, screen_ref, monitor):
     pcba = make_pcba_compound()
     pcba_world = place * pcba
     pcba_world.label = "pcba"
+    # POGO / Type-C 连接器实体 (世界系, 装配模拟用): bracket 在装配里即世界原位,
+    #   故连接器直接建在 make_bracket.mate 世界坐标, 无需再做位姿变换.
+    pogo = make_pogo_connector()                # 坐落对接面 POGO 凹腔, 针朝屏 +Z
+    typec = make_typec_receptacle()             # 坐落支柱下方壳块, 口朝下 -Y
     return Compound(label="InkPulse_426_assembly_context",
-                    children=[monitor, br_world, bz_world, bc_world, sr_world, pcba_world])
+                    children=[monitor, br_world, bz_world, bc_world, sr_world,
+                              pcba_world, pogo, typec])
 
 
 # ============================================================
@@ -1523,6 +1665,24 @@ def main():
     pin_top_z = PCB_BACK_Z - PCB_LOC_PIN_H      # 销顶 (屏体局部 z, 朝屏方向)
     print(f"   [支柱移后盖] 后盖(含4支柱+定位销) ∩ 墨水屏 = {bc_scr:.3f} mm3; bezel(前腔已无支柱) ∩ 墨水屏 = {bz_scr:.3f} mm3 -> "
           f"{'通过(支柱在后盖, 不戳屏)' if bc_scr < 1.0 and bz_scr < 1.0 else '失败(戳屏)'}")
+    # [修 "M2 螺柱戳墨水屏"] 4 角自攻柱 boss 移到屏外: 整柱 (Φ BOSS_D) 与墨水屏 footprint 直接相交=0.
+    #   单独建 4 个 boss 圆柱 (与 make_bezel 步骤4 同几何: z=FRONT_WALL_T..BEZEL_DEPTH), 与屏求交.
+    from build123d import Cylinder as _CylB
+    boss_h_chk = BEZEL_CAV_DEPTH
+    with BuildPart() as _bosses:
+        with Locations(
+            (BOSS_X, BOSS_Y, FRONT_WALL_T), (-BOSS_X, BOSS_Y, FRONT_WALL_T),
+            (BOSS_X, -BOSS_Y, FRONT_WALL_T), (-BOSS_X, -BOSS_Y, FRONT_WALL_T),
+        ):
+            _CylB(BOSS_D / 2, boss_h_chk, align=(Align.CENTER, Align.CENTER, Align.MIN))
+    boss_scr = _ivol(_bosses.part, screen_body)
+    # 几何判据: 柱内缘 (柱心-柱半) 须在屏半之外, 留 BOSS_SCREEN_CLEAR.
+    clr_x = (BOSS_X - BOSS_D / 2) - SCREEN_W / 2
+    clr_y = (BOSS_Y - BOSS_D / 2) - SCREEN_H / 2
+    print(f"   [螺柱在屏外] 屏半宽/高 = {SCREEN_W/2:.2f}/{SCREEN_H/2:.2f}; 4 boss 中心 (±{BOSS_X:.2f}, ±{BOSS_Y:.2f}) "
+          f"Φ{BOSS_D}; 柱内缘-屏半 间隙 X={clr_x:.2f} Y={clr_y:.2f} (>=BOSS_SCREEN_CLEAR={BOSS_SCREEN_CLEAR})")
+    print(f"   [螺柱在屏外] 4×boss(整柱) ∩ 墨水屏 = {boss_scr:.3f} mm3 -> "
+          f"{'通过(4 螺柱全在屏外, 不戳屏)' if boss_scr < 1e-6 else '失败(柱仍戳屏)'}")
     print(f"   支柱顶面 body z={PCB_BACK_Z} 托 PCB 背面(元件面); 支撑高 PCB_STANDOFF_H={PCB_STANDOFF_H:.2f}; "
           f"对角 2 定位销 Φ{PCB_LOC_PIN_D} 顶 body z={pin_top_z:.2f} >= PCB前 {PCB_FRONT_Z} (不穿板/不碰屏)? {pin_top_z >= PCB_FRONT_Z}")
     # 夹持: plug 前端面 z vs PCB 背面 (报告预压量); plug 中央镂空让开元件.

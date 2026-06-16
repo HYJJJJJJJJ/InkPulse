@@ -84,6 +84,8 @@ asm = import_step(f"{OUT}/assembly_context.step")
 color_by_label = {
     "monitor_ref": "#bdbdbd", "bracket": "#d9b48a", "bezel": "#9bb8d3",
     "back_cover": "#a8c8a0", "screen_ref": "#5a7fa0",
+    # 装配模拟连接器实体: POGO=黄铜金, Type-C 母座=深金属灰
+    "pogo_connector": "#c9a227", "typec_receptacle": "#5f666e",
 }
 # 预先把各节点三角面缓存 (供两个视角复用)
 asm_tris = []  # (color, tri)
@@ -239,7 +241,7 @@ def _near_pogo(tri):
 # 逐三角面邻域裁剪 (聚焦 POGO):
 pogo_items = []
 for (col, tri, lbl) in all_node_tris:
-    if lbl not in ("bracket", "back_cover", "pcba"):
+    if lbl not in ("bracket", "back_cover", "pcba", "pogo_connector"):
         continue
     keep = np.array([_near_pogo(t) for t in tri])
     if keep.any():
