@@ -79,9 +79,9 @@ python render_preview_426.py   # 渲染多视图预览 output/426/preview_426.pn
 | 件 | 文件 | 作用 |
 |---|---|---|
 | 前框 bezel | `output/426/bezel.{stl,step}` | 托盘式：露视窗压黑边、四周侧壁、PCB 支柱+定位销 |
-| 后盖 back_cover | `output/426/back_cover.{stl,step}` | 插入凸台压 PCB（无螺丝夹持）+ 对接区 4 触点 pad 窗 + 2 钢吸片腔 |
-| L 支架 bracket | `output/426/bracket.{stl,step}` | 单一实体：卡钉抱角（0.3 间隙+VHB）+ 直支柱 + 对接面嵌 POGO 连接器 + 底边防水 Type-C 母座 + 内部走线腔 |
+| 后盖 back_cover | `output/426/back_cover.{stl,step}` | 插入凸台压 PCB（无螺丝夹持）+ 对接区 4×Φ8 磁腔 + 4 触点 pad 窗 + 2 钢吸片腔 |
+| L 支架 bracket | `output/426/bracket.{stl,step}` | 单一实体：卡钉抱角（0.3 间隙+VHB）+ 直支柱 + 对接面 4×Φ8 磁 + 中央 POGO 连接器 + 底边 Type-C 壳块 boss + 内部走线腔 |
 | 装配体 | `output/426/assembly_print.step` | 仅 3 打印件（装配位姿） |
 | 装配体(含参考) | `output/426/assembly_context.step` | 加显示器角块 + 屏参考板，看贴合关系 |
 
-**磁吸 + 供电（POGO）**：对接面嵌 **POGO 磁吸连接器**（20.44×4.0，自带 N/S 磁 + 4 针），同时做磁吸耦合 + 供电/数据；屏体后盖侧为 4 触点 pad + 2 钢吸片。供电入口为支架**底边防水 Type-C 母座**（飞线 → 支架内走线 → POGO）。屏体落位即得电、摘下断电。**待实测/验证项**：AA 纵向黑边 `WINDOW_OFFSET_Y`、FPC 尺寸、**POGO 磁力是否够扛 40g+杠杆（不足开 `AUX_MAG_ENABLE`）**。
+**磁/电分工**：**8×Φ8 N52 磁铁（后盖4+支架4，四角，棋盘极性）负责吸合/承重**；对接面中央 **POGO 连接器**（20.44×4.0，自带 N/S 磁 + 4 针）负责**供电/数据 + 对位**；屏体后盖侧为 4 触点 pad + 2 钢吸片。供电入口为支架**底边防水 Type-C 母座**（用专用壳块 boss 包裹，飞线 → 支架内走线 → POGO）。屏体落位即吸合得电、摘下断电。**待实测/验证项**：AA 纵向黑边 `WINDOW_OFFSET_Y`、FPC 尺寸、装配后静置承重测试、PCB 四角避让磁柱 boss。
