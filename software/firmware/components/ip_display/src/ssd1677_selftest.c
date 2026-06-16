@@ -48,5 +48,38 @@ void ssd1677_selftest_run(void)
     ssd1677_update_full();
     vTaskDelay(pdMS_TO_TICKS(2000));
 
+    // ---- 局刷校验: 全刷基准 → 连续局刷走动方块 → 观察不闪/残影/到 30 次洗净 ----
+    ESP_LOGI(TAG, "局刷校验: 全刷基准(全白)");
+    memset(row, 0x00, sizeof(row));
+    ssd1677_ram_begin();
+    for (int y = 0; y < SSD_HEIGHT; y++) ssd1677_ram_row(row);
+    ssd1677_update_full();
+    // 0x26 基准 = 全白
+    set_ram_counter();
+    hal_spi_cmd(0x26);
+    memset(row, 0x00, sizeof(row));
+    for (int y = 0; y < SSD_HEIGHT; y++) ssd1677_ram_row(row);
+
+    for (int i = 0; i < 35; i++) {
+        ESP_LOGI(TAG, "局刷 #%d", i + 1);
+        // 写 0x24 = 新帧(第 i 个位置一个黑块)
+        ssd1677_ram_begin();   // set counter + 0x24
+        for (int y = 0; y < SSD_HEIGHT; y++) {
+            for (int b = 0; b < SSD_ROW_BYTES; b++)
+                row[b] = (y / 40 == 2 && b == (i % SSD_ROW_BYTES)) ? 0xFF : 0x00;
+            ssd1677_ram_row(row);
+        }
+        ssd1677_update_partial();   // 快波形局刷
+        // 写 0x26 = 同一帧, 作下一轮基准
+        set_ram_counter();
+        hal_spi_cmd(0x26);
+        for (int y = 0; y < SSD_HEIGHT; y++) {
+            for (int b = 0; b < SSD_ROW_BYTES; b++)
+                row[b] = (y / 40 == 2 && b == (i % SSD_ROW_BYTES)) ? 0xFF : 0x00;
+            ssd1677_ram_row(row);
+        }
+        vTaskDelay(pdMS_TO_TICKS(700));
+    }
+
     ESP_LOGI(TAG, "selftest 结束");
 }

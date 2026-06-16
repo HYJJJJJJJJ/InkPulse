@@ -59,7 +59,7 @@ static void ssd1677_panel_init(void)
     ESP_LOGI(TAG, "panel init done");
 }
 
-static void set_ram_counter(void)
+void set_ram_counter(void)
 {
     hal_spi_cmd(0x4E); hal_spi_data(0x00); hal_spi_data(0x00);   // X counter=0
     hal_spi_cmd(0x4F); hal_spi_data(0xDF); hal_spi_data(0x01);   // Y counter=479

@@ -18,3 +18,4 @@ void ssd1677_ram_begin(void);                    // set RAM counter + 发 0x24, 
 void ssd1677_ram_row(const uint8_t *row);        // 发一行(SSD_ROW_BYTES=100B, bit=1=黑, 内部按极性)
 void ssd1677_update_partial(void);                 // 0x22(0xCF)+0x20 快波形局刷 + 等忙(纯波形触发)
 void ssd1677_sync_old_ram(const uint8_t *plane);   // 把当前帧写入 0x26(下次局刷基准), 行式流写
+void set_ram_counter(void);   // set RAM X/Y counter 到原点(供 selftest 写 0x26)
