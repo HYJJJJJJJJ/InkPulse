@@ -127,15 +127,17 @@ _tcbb = (_tc_place * _tcp.part).bounding_box()
 TC_X = (_tcbb.min.X + _tcbb.max.X) / 2
 TC_Y = (_tcbb.min.Y + _tcbb.max.Y) / 2
 TC_Z = (_tcbb.min.Z + _tcbb.max.Z) / 2
-# FPC 折回槽世界 X 中心 (用于仰视图标注: 槽在底边中央 X≈0, Type-C 偏 -X 错开).
-_fpc_place = _E.body_placement()
-with _TCBP() as _fpcp:
-    with _TCLoc((0.0, -_E.BEZEL_OUT_H/2, _E.TYPEC_CENTER_Z)):
-        _TCBox(_E.FPC_SLOT_W, _E.WALL*4, _E.TYPEC_OPEN_H_Z, align=(_TCAl.CENTER,)*3)
-_fpcbb = (_fpc_place * _fpcp.part).bounding_box()
-FPC_X = (_fpcbb.min.X + _fpcbb.max.X) / 2
-FPC_Y = (_fpcbb.min.Y + _fpcbb.max.Y) / 2
-FPC_Z = (_fpcbb.min.Z + _fpcbb.max.Z) / 2
+# FPC 折回槽世界 X 中心 (用于仰视图标注). 槽现已禁用 (FPC_SLOT_ENABLE=False), 不再标注.
+FPC_X = FPC_Y = FPC_Z = None
+if _E.FPC_SLOT_ENABLE:
+    _fpc_place = _E.body_placement()
+    with _TCBP() as _fpcp:
+        with _TCLoc((0.0, -_E.BEZEL_OUT_H/2, _E.TYPEC_CENTER_Z)):
+            _TCBox(_E.FPC_SLOT_W, _E.WALL*4, _E.TYPEC_OPEN_H_Z, align=(_TCAl.CENTER,)*3)
+    _fpcbb = (_fpc_place * _fpcp.part).bounding_box()
+    FPC_X = (_fpcbb.min.X + _fpcbb.max.X) / 2
+    FPC_Y = (_fpcbb.min.Y + _fpcbb.max.Y) / 2
+    FPC_Z = (_fpcbb.min.Z + _fpcbb.max.Z) / 2
 
 
 def mark_typec(ax):
@@ -237,16 +239,19 @@ ax_wall.set_xlim(wmn[0] - 2, wmx[0] + 2)
 ax_wall.set_ylim(wmn[1] - 2, wmn[1] + 14)
 ax_wall.set_zlim(-12, 2)
 ax_wall.set_box_aspect((3.0, 0.6, 1.0))
-# elev=-12, azim=-90: 自底边 -Y 略仰视正对底边壁, 壁上 FPC 槽(中央)与 Type-C 方口(偏 -X)清晰错开.
+# elev=-12, azim=-90: 自底边 -Y 略仰视正对底边壁, 壁上 Type-C 方口(偏 -X)清晰可见.
 ax_wall.view_init(elev=-12, azim=-90)
-ax_wall.set_title("仰视 (从底边 -Y 向上看底边壁):\nFPC 槽(中央) + Type-C 方口(偏 -X) X 错开", fontsize=9)
+_wall_title = ("仰视 (从底边 -Y 向上看底边壁):\nType-C 方口(偏 -X) 朝下"
+               + ("; FPC 槽(中央) X 错开" if _E.FPC_SLOT_ENABLE else "; FPC 槽暂移除"))
+ax_wall.set_title(_wall_title, fontsize=9)
 ax_wall.set_xlabel("X (右=朝显示器)"); ax_wall.set_ylabel("Y (上)"); ax_wall.set_zlabel("Z")
-# 标注两口位置: Type-C (红) + FPC 槽 (橙)
+# 标注 Type-C (红); FPC 槽 (橙) 仅在启用时标注
 mark_typec(ax_wall)
-ax_wall.scatter([FPC_X], [FPC_Y], [FPC_Z], c="#e08a2b", s=70, marker="s",
-                depthshade=False, edgecolors="k", zorder=10)
-ax_wall.text(FPC_X + 2, FPC_Y + 4, FPC_Z + 3, "FPC 折回槽\n(底边中央)",
-             color="#a05a00", fontsize=8, zorder=12)
+if _E.FPC_SLOT_ENABLE:
+    ax_wall.scatter([FPC_X], [FPC_Y], [FPC_Z], c="#e08a2b", s=70, marker="s",
+                    depthshade=False, edgecolors="k", zorder=10)
+    ax_wall.text(FPC_X + 2, FPC_Y + 4, FPC_Z + 3, "FPC 折回槽\n(底边中央)",
+                 color="#a05a00", fontsize=8, zorder=12)
 
 plt.tight_layout()
 plt.savefig(f"{OUT}/preview_426.png", dpi=115)

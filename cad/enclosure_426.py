@@ -203,6 +203,7 @@ MAG_POSITIONS = [
 assert len(MAG_POSITIONS) == MAG_N
 
 # --- 后盖 FPC 折回槽 (底部短边 -Y 中央) ---
+FPC_SLOT_ENABLE = False                      # 暂移除折回槽; 待 FPC 实测尺寸后再开回并收敛形状 (§8)
 FPC_SLOT_W = 24.0                            # 折回槽宽 (FPC 实测宽 + 余量; 待测 §8)
 FPC_SLOT_DEPTH = 10.0                        # 沿 +Y 深入
 
@@ -406,12 +407,15 @@ def make_back_cover():
                          align=(Align.CENTER, Align.CENTER, Align.MIN),
                          mode=Mode.SUBTRACT)
 
-        # 4) 底部短边 (-Y) FPC 折回槽: 中央, 宽 FPC_SLOT_W, 深入 +Y FPC_SLOT_DEPTH, 贯穿厚度
+        # 后盖全厚 (供 FPC 槽 / 螺孔等贯穿特征复用)
         slot_total_h = BACK_COVER_PLATE_T + BC_PLUG_DEPTH + 0.02
-        with Locations((0, -BEZEL_OUT_H / 2, -0.01)):
-            Box(FPC_SLOT_W, FPC_SLOT_DEPTH * 2, slot_total_h,
-                align=(Align.CENTER, Align.CENTER, Align.MIN),
-                mode=Mode.SUBTRACT)
+        # 4) 底部短边 (-Y) FPC 折回槽: 中央, 宽 FPC_SLOT_W, 深入 +Y FPC_SLOT_DEPTH, 贯穿厚度
+        #    暂移除 (FPC_SLOT_ENABLE=False): 待 FPC 实测尺寸后再收敛为正确折回让位形状 (§8).
+        if FPC_SLOT_ENABLE:
+            with Locations((0, -BEZEL_OUT_H / 2, -0.01)):
+                Box(FPC_SLOT_W, FPC_SLOT_DEPTH * 2, slot_total_h,
+                    align=(Align.CENTER, Align.CENTER, Align.MIN),
+                    mode=Mode.SUBTRACT)
 
         # 5) (已删除) 原 Type-C 切口在后盖上无效 — 该 Z 的右壁由 bezel 出, 口被封死.
         #    Type-C 开口现切在 bezel +X 右侧壁 (见 make_bezel 步骤 7), 真穿透.
@@ -911,15 +915,18 @@ def main():
     print(f"          穿透探针 (跨底壁, 腔内->壳外向下, 体积 {probe_vol:.2f}mm3) ∩ 屏体合并实体 = "
           f"{block_vol:.4f} mm3 -> {'通过(真穿透, 无料阻挡)' if true_through else '失败(口被封死!)'}")
     # 不与 FPC 折回槽 X 重叠 (要点: ≥2mm 间隔):
-    fpc_slot_x0, fpc_slot_x1 = -FPC_SLOT_W / 2, FPC_SLOT_W / 2
-    # Type-C 开口在底边壁的 X 范围 = 口世界 X 范围 (底边壁 X 与 bezel 局部 X 等向, 仅平移):
-    tc_x0, tc_x1 = typec_x0, typec_x1
-    # X 间隔 (口在 FPC 槽 -X 一侧): 槽左缘 - 口右缘:
-    gap_to_fpc = fpc_slot_x0 - tc_x1 if tc_x1 <= fpc_slot_x0 else (tc_x0 - fpc_slot_x1)
-    x_no_overlap = (tc_x1 <= fpc_slot_x0) or (tc_x0 >= fpc_slot_x1)
-    print(f"          Type-C 开口世界 X[{tc_x0:.2f},{tc_x1:.2f}] vs FPC 折回槽世界 X[{fpc_slot_x0:.2f},{fpc_slot_x1:.2f}]; "
-          f"不交叠? {x_no_overlap}; X 间隔={gap_to_fpc:.2f}mm -> "
-          f"{'通过(不重叠且 ≥2mm)' if x_no_overlap and gap_to_fpc >= 2.0 else '检查'}")
+    if FPC_SLOT_ENABLE:
+        fpc_slot_x0, fpc_slot_x1 = -FPC_SLOT_W / 2, FPC_SLOT_W / 2
+        # Type-C 开口在底边壁的 X 范围 = 口世界 X 范围 (底边壁 X 与 bezel 局部 X 等向, 仅平移):
+        tc_x0, tc_x1 = typec_x0, typec_x1
+        # X 间隔 (口在 FPC 槽 -X 一侧): 槽左缘 - 口右缘:
+        gap_to_fpc = fpc_slot_x0 - tc_x1 if tc_x1 <= fpc_slot_x0 else (tc_x0 - fpc_slot_x1)
+        x_no_overlap = (tc_x1 <= fpc_slot_x0) or (tc_x0 >= fpc_slot_x1)
+        print(f"          Type-C 开口世界 X[{tc_x0:.2f},{tc_x1:.2f}] vs FPC 折回槽世界 X[{fpc_slot_x0:.2f},{fpc_slot_x1:.2f}]; "
+              f"不交叠? {x_no_overlap}; X 间隔={gap_to_fpc:.2f}mm -> "
+              f"{'通过(不重叠且 ≥2mm)' if x_no_overlap and gap_to_fpc >= 2.0 else '检查'}")
+    else:
+        print(f"          FPC 折回槽: 已禁用(暂移除) -> Type-C 底边独占, 无重叠校验")
     # 不与支柱重叠 (支柱世界 Y∈[-STRUT_W,0] 屏顶高度, Type-C 在底边 Y≈min; X<0 一侧):
     strut_wy0 = _mate["strut_yc"] - _mate["strut_w"] / 2
     strut_wy1 = _mate["strut_yc"] + _mate["strut_w"] / 2
@@ -993,12 +1000,16 @@ def main():
     # FPC: 板底 24P 排座 vs 后盖底部折回槽对齐.
     fpc_bb = fpc.bounding_box()
     fpc_y = (fpc_bb.min.Y + fpc_bb.max.Y) / 2
-    slot_y_inner = -BEZEL_OUT_H / 2 + FPC_SLOT_DEPTH              # 折回槽沿 +Y 深入到此
-    print(f"   FPC 24P 排座 板底中点 (局部 X≈0, Y={fpc_y:.2f}, 宽 {FPC_CONN_W}); "
-          f"后盖底部折回槽 宽 {FPC_SLOT_W} 槽口 Y=-{BEZEL_OUT_H/2:.1f} 深入到 Y={slot_y_inner:.1f}")
-    fpc_aligned = abs(fpc_bb.min.X) < FPC_SLOT_W / 2 and FPC_CONN_W <= FPC_SLOT_W
-    print(f"   排座宽 {FPC_CONN_W} <= 槽宽 {FPC_SLOT_W}, 居中对齐? {fpc_aligned}; 折回间隙 {FPC_FOLD_GAP} -> "
-          f"{'通过(排座对齐折回槽)' if fpc_aligned else '检查'}")
+    if FPC_SLOT_ENABLE:
+        slot_y_inner = -BEZEL_OUT_H / 2 + FPC_SLOT_DEPTH          # 折回槽沿 +Y 深入到此
+        print(f"   FPC 24P 排座 板底中点 (局部 X≈0, Y={fpc_y:.2f}, 宽 {FPC_CONN_W}); "
+              f"后盖底部折回槽 宽 {FPC_SLOT_W} 槽口 Y=-{BEZEL_OUT_H/2:.1f} 深入到 Y={slot_y_inner:.1f}")
+        fpc_aligned = abs(fpc_bb.min.X) < FPC_SLOT_W / 2 and FPC_CONN_W <= FPC_SLOT_W
+        print(f"   排座宽 {FPC_CONN_W} <= 槽宽 {FPC_SLOT_W}, 居中对齐? {fpc_aligned}; 折回间隙 {FPC_FOLD_GAP} -> "
+              f"{'通过(排座对齐折回槽)' if fpc_aligned else '检查'}")
+    else:
+        print(f"   FPC 24P 排座 板底中点 (局部 X≈0, Y={fpc_y:.2f}, 宽 {FPC_CONN_W}); "
+              f"后盖底部折回槽: 已禁用(暂移除); 折回间隙 {FPC_FOLD_GAP} 保留 (待 FPC 实测后再开槽)")
 
     # --- 5) 屏体总厚分解 ---
     print(f"[5 叠层] 唇LIP{LIP} + 屏{SCREEN_T} + FPC折回{FPC_FOLD_GAP} + 小板(PCB{PCB_T}+元件{COMP_H_MAX}) + 后盖壁{BACK_WALL}")
