@@ -63,3 +63,25 @@ Type-C: 朝后（+Y，背向用户），开口 10×4mm，中心离内底 ≈7.3m
 ```
 
 > PCB 机械接口以**外壳为基准、PCB 跟随**；坐标原点=板几何中心，已用 `fitcheck.py` 将真实 PCB STEP 放入底座校验通过。
+
+---
+
+## 4.26" 磁吸侧挂外壳（独立件）
+
+`enclosure_426.py` —— 为 4.26" 竖屏 **YRD0426BBS770F0**（62.37×105.33×1.0，SSD1677）设计的磁吸侧挂外壳，通过 L 形卡钉支架耦合在塑料显示器**左上角外侧**（竖屏、与显示器前表面共面、顶边持平、不挡画面）。**v1 无电池，纯 Type-C 供电**。设计依据见 [4.26 外壳设计文档](../docs/superpowers/specs/2026-06-16-inkpulse-426-magnetic-dock-design.md)。
+
+```bash
+conda activate cad
+python enclosure_426.py        # 生成三件 + 两个装配体, 含完整自检报告, 导出到 output/426/
+python render_preview_426.py   # 渲染多视图预览 output/426/preview_426.png
+```
+
+| 件 | 文件 | 作用 |
+|---|---|---|
+| 前框 bezel | `output/426/bezel.{stl,step}` | 托盘式：露视窗压黑边、四周侧壁、PCB 支柱+定位销、右侧壁 Type-C 开口 |
+| 后盖 back_cover | `output/426/back_cover.{stl,step}` | 嵌磁腔 + 插入凸台压 PCB（无螺丝夹持）+ 底部 FPC 折回槽 |
+| L 支架 bracket | `output/426/bracket.{stl,step}` | 单一实体：卡钉抱角（留 0.3 间隙+VHB）+ 直支柱 + 对接面嵌对磁 |
+| 装配体 | `output/426/assembly_print.step` | 仅 3 打印件（装配位姿） |
+| 装配体(含参考) | `output/426/assembly_context.step` | 加显示器角块 + 屏参考板，看贴合关系 |
+
+**磁吸**：后盖与支架对接面各嵌 4× **N52 Φ8×3** 对磁（棋盘极性防呆 + 自动吸正），对接面贴高摩擦垫抗下滑。**待实测项**（脚本顶部变量）：AA 纵向黑边 `WINDOW_OFFSET_Y`、FPC 折回槽尺寸、按实重复算磁力。
