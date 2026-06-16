@@ -116,46 +116,55 @@ import importlib.util as _ilu
 _spec = _ilu.spec_from_file_location("enclosure_426", "cad/enclosure_426.py")
 _E = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_E)
 _E.make_bracket()  # 填充 mate
-# Type-C 开口世界中心: 开口切在 bezel 局部 -X 壁 (装配后落世界 max X = 朝显示器壁).
-#   故标注盒放 -BEZEL_OUT_W/2, 且只经 bezel 装配变换 (body_placement), 不经 back_cover_local.
+# Type-C 开口世界中心: 开口切在 bezel 局部 -Y 底边壁 (装配后落世界 min Y = 底边, 口朝下/-Y).
+#   故标注盒放 -BEZEL_OUT_H/2 (底边), X=TYPEC_LOCAL_X 偏置; 只经 bezel 装配变换 (body_placement).
 _tc_place = _E.body_placement()
 from build123d import Box as _TCBox, Locations as _TCLoc, BuildPart as _TCBP, Align as _TCAl
 with _TCBP() as _tcp:
-    with _TCLoc((-_E.BEZEL_OUT_W/2, _E.TYPEC_LOCAL_Y, _E.TYPEC_CENTER_Z)):
-        _TCBox(_E.WALL*4, _E.TYPEC_W, _E.TYPEC_H, align=(_TCAl.CENTER,)*3)
+    with _TCLoc((_E.TYPEC_LOCAL_X, -_E.BEZEL_OUT_H/2, _E.TYPEC_CENTER_Z)):
+        _TCBox(_E.TYPEC_W, _E.WALL*4, _E.TYPEC_OPEN_H_Z, align=(_TCAl.CENTER,)*3)
 _tcbb = (_tc_place * _tcp.part).bounding_box()
 TC_X = (_tcbb.min.X + _tcbb.max.X) / 2
 TC_Y = (_tcbb.min.Y + _tcbb.max.Y) / 2
 TC_Z = (_tcbb.min.Z + _tcbb.max.Z) / 2
+# FPC 折回槽世界 X 中心 (用于仰视图标注: 槽在底边中央 X≈0, Type-C 偏 -X 错开).
+_fpc_place = _E.body_placement()
+with _TCBP() as _fpcp:
+    with _TCLoc((0.0, -_E.BEZEL_OUT_H/2, _E.TYPEC_CENTER_Z)):
+        _TCBox(_E.FPC_SLOT_W, _E.WALL*4, _E.TYPEC_OPEN_H_Z, align=(_TCAl.CENTER,)*3)
+_fpcbb = (_fpc_place * _fpcp.part).bounding_box()
+FPC_X = (_fpcbb.min.X + _fpcbb.max.X) / 2
+FPC_Y = (_fpcbb.min.Y + _fpcbb.max.Y) / 2
+FPC_Z = (_fpcbb.min.Z + _fpcbb.max.Z) / 2
 
 
 def mark_typec(ax):
-    """在装配视图上用红点 + 箭头标出 Type-C 开口 (朝显示器 +X 出线)."""
+    """在装配视图上用红点 + 箭头标出 Type-C 开口 (底边朝下/-Y 出线)."""
     ax.scatter([TC_X], [TC_Y], [TC_Z], c="#d11", s=70, marker="o",
                depthshade=False, edgecolors="k", zorder=10)
-    # 出线方向箭头: 朝 +X (朝显示器)
-    ax.quiver(TC_X, TC_Y, TC_Z, 12, 0, 0, color="#d11", linewidth=2.2, zorder=11)
-    ax.text(TC_X + 2, TC_Y + 6, TC_Z + 4,
-            f"Type-C 开口\n(右侧边朝显示器, 屏顶下方 {abs(TC_Y):.0f}mm)\n法向 +X 出线",
+    # 出线方向箭头: 朝 -Y (向下, 垂直沿显示器左侧落下)
+    ax.quiver(TC_X, TC_Y, TC_Z, 0, -14, 0, color="#d11", linewidth=2.2, zorder=11)
+    ax.text(TC_X + 2, TC_Y - 10, TC_Z + 4,
+            f"Type-C 开口\n(底边朝下出线, 偏 -X 避 FPC)\n法向 -Y 向下",
             color="#a00", fontsize=8, zorder=12)
 
 
 # 格 7: 装配等轴 (看整体落位) + Type-C 标注
 ax_aiso = fig.add_subplot(NR, NC, 7, projection="3d")
 draw_asm(ax_aiso, 18, -65,
-         f"Assembly 等轴 (屏顶=显示器顶持平, 屏在左侧外)\nType-C 在右侧边朝显示器·靠上 (红点/箭头)",
+         f"Assembly 等轴 (屏顶=显示器顶持平, 屏在左侧外)\nType-C 在底边朝下出线·偏 -X 避 FPC (红点/箭头)",
          "X (右=朝显示器)", "Y (上)", "Z (朝用户)")
 mark_typec(ax_aiso)
 
 # 格 8: 装配侧视 (沿 -X 看 Y-Z 平面) — 一眼可见 墨水屏与显示器共面、支柱藏背后、不向 +Z 凸
 ax_side = fig.add_subplot(NR, NC, 8, projection="3d")
 draw_asm(ax_side, 6, 0,
-         "Assembly 侧视 (沿 -X 看 Y-Z): 墨水屏与显示器正面共面\n支柱/对接板藏屏后; Type-C 右侧边·靠上 (红点)",
+         "Assembly 侧视 (沿 -X 看 Y-Z): 墨水屏与显示器正面共面\n支柱/对接板藏屏后; Type-C 底边朝下出线 (红点)",
          "X (右=朝显示器)", "Y (上)", "Z (朝用户=+Z)", aspect=(0.35, 1, 1))
 mark_typec(ax_side)
 
 # ============================================================
-# 第 3 行: Type-C 专属视图 (剖切露内部 + 壳外右壁看开口)
+# 第 3 行: Type-C 专属视图 (过 Type-C 的竖直剖切露内部 + 仰视看底边)
 # ============================================================
 # 重建带 label 的"屏体+PCBA"世界三角面 (含 bezel/back_cover/pcba/screen_ref, 不含 monitor/bracket),
 # 以便剖切时只剖屏体, 露出 PCB/支柱/Type-C 母座/前框侧壁开口.
@@ -185,36 +194,36 @@ for node in (asm.children or []):
         if len(tri):
             body_tris.append((col, tri))
 
-# 剖切: 过 Type-C 的水平面 Y=TC_Y 切开, 只保留 Y<=TC_Y 半 (剖面朝 +Y 观察者),
-#   露出右壁开口 / PCB 边 / Type-C 母座 / 支柱。按三角面中心 Y 过滤 (轻量裁剪).
-CUT_Y = TC_Y + 0.5
-def clip_below_y(tris_list, ymax):
+# 剖切: 过 Type-C 的竖直面 X=TC_X 切开, 只保留 X>=TC_X-0.5 半 (剖面朝 -X 观察者),
+#   露出底边壁开口 / PCB 底缘 / Type-C 母座 / 内腔。按三角面中心 X 过滤 (轻量裁剪).
+CUT_X = TC_X - 0.5
+def clip_above_x(tris_list, xmin):
     out = []
     for col, tri in tris_list:
-        cy = tri.reshape(-1, 3)[:, 1].reshape(-1, 3).mean(1)  # 每三角面中心 Y
-        keep = tri[cy <= ymax]
+        cx = tri.reshape(-1, 3)[:, 0].reshape(-1, 3).mean(1)  # 每三角面中心 X
+        keep = tri[cx >= xmin]
         if len(keep):
             out.append((col, keep))
     return out
-sect = clip_below_y(body_tris, CUT_Y)
+sect = clip_above_x(body_tris, CUT_X)
 spts = np.vstack([t for _, t in sect]).reshape(-1, 3)
 smn, smx = spts.min(0), spts.max(0); sctr = (smn + smx) / 2; sr = (smx - smn).max() / 2
 
-# 格 9: 剖切等轴 (从 +Y 上方俯看剖面) — 看 Type-C 母座对准右壁开口、PCB/支柱叠层
+# 格 9: 剖切等轴 (过 Type-C 的竖直面) — 看 Type-C 母座对准底边壁开口 (口朝下)、PCB 底缘叠层
 ax_sec = fig.add_subplot(NR, NC, 9, projection="3d")
 for col, tri in sect:
     ax_sec.add_collection3d(Poly3DCollection(tri, alpha=0.9, facecolor=col,
                                              edgecolor="#333", linewidths=0.06))
 ax_sec.set_xlim(sctr[0]-sr, sctr[0]+sr); ax_sec.set_ylim(sctr[1]-sr, sctr[1]+sr)
 ax_sec.set_zlim(sctr[2]-sr, sctr[2]+sr)
-ax_sec.set_box_aspect((1, 1, 1)); ax_sec.view_init(elev=32, azim=-72)
-ax_sec.set_title(f"屏体剖切 (过 Type-C 平面 Y={TC_Y:.0f}): 露 PCB(绿)/支柱/\n"
-                 f"Type-C 母座(红)对准右壁开口 / 前框侧壁", fontsize=9)
-ax_sec.set_xlabel("X (右=朝显示器)"); ax_sec.set_ylabel("Y"); ax_sec.set_zlabel("Z")
+ax_sec.set_box_aspect((1, 1, 1)); ax_sec.view_init(elev=22, azim=-110)
+ax_sec.set_title(f"屏体剖切 (过 Type-C 竖直面 X={TC_X:.0f}): 露 PCB(绿)/\n"
+                 f"Type-C 母座(红)对准底边壁开口 (口朝下 -Y)", fontsize=9)
+ax_sec.set_xlabel("X (右=朝显示器)"); ax_sec.set_ylabel("Y (上)"); ax_sec.set_zlabel("Z")
 mark_typec(ax_sec)
 
-# 格 10: 从壳外 +X 正对右侧壁看 (沿 -X 视线) — Type-C 开口一眼可见 (壁上的方口)
-# 只画屏体 (bezel+back_cover) 外观, 视线从 +X 朝 -X, 即正对朝显示器的右侧壁.
+# 格 10: 仰视 — 从底边 -Y 方向看 (向上看底边壁), 露出底边 FPC 槽 + Type-C 开口 (两者 X 错开)
+# 只画屏体 (bezel+back_cover) 外观, 视线从 -Y 朝 +Y, 正对底边短边壁.
 shell_tris = [(c, t) for (c, t) in body_tris
               if c in ("#9bb8d3", "#a8c8a0")]  # 仅 bezel(蓝)/back_cover(绿)
 ax_wall = fig.add_subplot(NR, NC, 10, projection="3d")
@@ -223,16 +232,21 @@ for col, tri in shell_tris:
                                               edgecolor="#456", linewidths=0.08))
 wpts = np.vstack([t for _, t in shell_tris]).reshape(-1, 3)
 wmn, wmx = wpts.min(0), wpts.max(0)
-# 聚焦朝显示器壁 (世界 max X) 一带, 沿 X 收紧, Y/Z 围绕 Type-C, 压扁 X 轴正视壁面.
-ax_wall.set_xlim(wmx[0] - 14, wmx[0] + 2)
-ax_wall.set_ylim(TC_Y - 58, TC_Y + 58)
+# 聚焦底边壁 (世界 min Y) 一带: 沿 Y 收紧, X 跨底边宽 (含 FPC 中央 + Type-C 偏 -X), 看两口错开.
+ax_wall.set_xlim(wmn[0] - 2, wmx[0] + 2)
+ax_wall.set_ylim(wmn[1] - 2, wmn[1] + 14)
 ax_wall.set_zlim(-12, 2)
-ax_wall.set_box_aspect((0.6, 3.0, 1.0))
-# elev=15, azim=-100: 自壳外 +X 略俯视正对朝显示器壁, 壁上 Type-C 方口缺口清晰可见.
-ax_wall.view_init(elev=15, azim=-100)
-ax_wall.set_title("从壳外 +X 看朝显示器右侧壁:\nType-C 方口清晰可见 (壁上缺口, 红点标注)", fontsize=9)
+ax_wall.set_box_aspect((3.0, 0.6, 1.0))
+# elev=-12, azim=-90: 自底边 -Y 略仰视正对底边壁, 壁上 FPC 槽(中央)与 Type-C 方口(偏 -X)清晰错开.
+ax_wall.view_init(elev=-12, azim=-90)
+ax_wall.set_title("仰视 (从底边 -Y 向上看底边壁):\nFPC 槽(中央) + Type-C 方口(偏 -X) X 错开", fontsize=9)
 ax_wall.set_xlabel("X (右=朝显示器)"); ax_wall.set_ylabel("Y (上)"); ax_wall.set_zlabel("Z")
+# 标注两口位置: Type-C (红) + FPC 槽 (橙)
 mark_typec(ax_wall)
+ax_wall.scatter([FPC_X], [FPC_Y], [FPC_Z], c="#e08a2b", s=70, marker="s",
+                depthshade=False, edgecolors="k", zorder=10)
+ax_wall.text(FPC_X + 2, FPC_Y + 4, FPC_Z + 3, "FPC 折回槽\n(底边中央)",
+             color="#a05a00", fontsize=8, zorder=12)
 
 plt.tight_layout()
 plt.savefig(f"{OUT}/preview_426.png", dpi=115)

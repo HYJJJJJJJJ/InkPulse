@@ -53,9 +53,17 @@ PCB_FIT = 0.3                  # 板外形与腔内壁单边配合间隙 (XY 兜
 # --- PCBA 装配 Z 叠层关键常数 ---
 TYPEC_BODY_H = 3.2             # Type-C 母座高出 PCB 元件面 (从 PCB 背面起算的母座外壳高)
 # FPC 排座在底边中点 bottom_mid
-TYPEC_SIDE = "right"           # 朝显示器 (+X)
-TYPEC_W = 10.0
-TYPEC_H = 4.0
+# --- Type-C 改到底边朝下出线 (改动: 右侧壁 -> 底边 -Y, 口朝 -Y/向下) ---
+#   背景: 原口在屏体右侧壁(+X, 朝显示器), 插头/线缆往 +X 与显示器左边框打架.
+#   改为母座移到 PCB 底边(-Y 缘)、口朝 -Y(向下), 线缆垂直沿显示器左侧落下, 彻底避开.
+TYPEC_SIDE = "bottom"          # 底边短边 (-Y), 口朝下 (-Y) 出线
+TYPEC_W = 10.0                 # 开口沿 X 宽 (= 母座宽方向)
+TYPEC_H = 4.0                  # (旧右侧壁口的 Z 高占位; 底边口的 Z 跨度改由板位推出, 见派生区)
+# Type-C 沿 X 偏置, 避开底边中央 FPC 排座/折回槽 (FPC_SLOT_W=24, X∈[-12,12]).
+#   偏 -X 一侧 (背离显示器). 口 X∈[CENTER-W/2, CENTER+W/2], 与 FPC 槽留 ≥2mm 间隔.
+#   -20: 口 X∈[-25,-15], 距 FPC 槽左缘 -12 => 间隙 3.0mm (≥2). (设计指定 ~-18, 因 -18
+#   仅余 1mm < 2mm 约束, 故收到 -20 满足硬约束; 见完成报告.)
+TYPEC_CENTER_X = -20.0         # Type-C 开口 X 中心 (bezel 局部, 偏 -X 背离显示器)
 # --- PCB 安装/定位 ---
 PCB_MOUNT_INSET = 5.0          # 安装/定位孔从板边内缩 (避开连接器)
 PCB_LOC_PIN_D = 1.8            # 定位销直径 (插板定位孔)
@@ -199,21 +207,22 @@ FPC_SLOT_W = 24.0                            # 折回槽宽 (FPC 实测宽 + 余
 FPC_SLOT_DEPTH = 10.0                        # 沿 +Y 深入
 
 # ============================================================
-# Type-C 开口 (头号修复) — 由 PCBA 装配 Z 推出, 切在 bezel 右侧壁
+# Type-C 开口 — 改到 bezel 底边壁 (-Y), 口朝下 (-Y); 由 PCBA 装配 Z 推出 Z 跨度
 # ============================================================
-# 母座在 PCB 右缘(+X)、元件面朝后(+z); 母座高出 PCB 约 TYPEC_BODY_H.
-#   口中心 Z 由板位推出: PCB 背面 z=PCB_BACK_Z(4.1) + 母座半高.
-#   => TYPEC_CENTER_Z ≈ 4.1 + 3.2/2 = 5.7, 落在 bezel 壁内 (z<BEZEL_DEPTH=8.3), 只需切 bezel.
-TYPEC_CENTER_Z = PCB_BACK_Z + TYPEC_BODY_H / 2           # 口中心 z (由板位派生) ≈ 5.7
-# 竖向锚点 (世界): 屏顶 ≈ Y=0, 上部. 必须落在"上下两排磁之间的空带", 否则 Type-C 母座
-#   (元件面朝后, z 与磁腔 z 区有交叠) 会与上排磁腔在右上角抢位 (实测过 ~3.3mm³ 干涉).
-#   上排磁世界 Y ≈ MAG_BAND_CENTER_Y+MAG_INSET_Y + BODY_CENTER_Y_WORLD; 取其下方 + 半磁径余量.
-#   => 世界 Y=-27: 屏顶下方 27mm (仍在上部, 自检 12~30 区间内), 且落在两排磁空带, 不与任一磁腔交叠.
-TYPEC_CENTER_Y = -27.0                                   # Type-C 中心 Y (世界, 屏顶下方 27mm, 两磁排之间)
-# 屏体中心世界 Y (顶部对齐: 屏顶=显示器顶=0, 向下延伸): 提到模块级以便反算局部 Y.
+# 母座移到 PCB 底边(-Y 缘)、元件面朝后(+z), 母座高出 PCB 约 TYPEC_BODY_H.
+#   口朝 -Y(向下): 开口沿 X 宽 = TYPEC_W; 沿 Z 跨度 = 母座在底边的实际 Z 包络 (连接器贴板).
+#   母座 Z 包络: 从 PCB 背面 z=PCB_BACK_Z(4.1) 起, 高 TYPEC_BODY_H, 即 z∈[4.1, 4.1+3.2=7.3].
+#     口稍放宽两端各 0.4 余量, 仍 < BEZEL_DEPTH=8.3 (落 bezel 壁内, 只需切 bezel).
+TYPEC_OPEN_MARGIN_Z = 0.4                                # 口 Z 两端余量 (让母座+插头)
+TYPEC_Z0 = PCB_BACK_Z - TYPEC_OPEN_MARGIN_Z              # 口 Z 下沿 ≈ 3.7
+TYPEC_Z1 = PCB_BACK_Z + TYPEC_BODY_H + TYPEC_OPEN_MARGIN_Z   # 口 Z 上沿 ≈ 7.7
+TYPEC_OPEN_H_Z = TYPEC_Z1 - TYPEC_Z0                     # 口沿 Z 跨度 ≈ 4.0
+TYPEC_CENTER_Z = (TYPEC_Z0 + TYPEC_Z1) / 2              # 口中心 z ≈ 5.7
+# 底边壁朝下: bezel 局部 -Y 即世界 -Y (body_placement 的 Rot(0,180,0) 不改 Y). 口朝 -Y/向下.
+# X 偏置 (避开 FPC): 见 TYPEC_CENTER_X (默认 -20, 偏 -X 背离显示器, 与 FPC 槽留 ≥2mm).
+TYPEC_LOCAL_X = TYPEC_CENTER_X                           # bezel 局部 X (= 世界 -X 一侧, 背离显示器)
+# 屏体中心世界 Y (顶部对齐: 屏顶=显示器顶=0, 向下延伸); 保留供装配/自检反算用.
 BODY_CENTER_Y_WORLD = (0.0 + TOP_FLUSH_OFFSET) - BEZEL_OUT_H / 2   # ≈ -53.06
-# 开口在 bezel 局部 Y (绕 Y 轴翻转不改 Y 分量, 仅平移): 局部 Y = 世界 Y - 屏体中心世界 Y.
-TYPEC_LOCAL_Y = TYPEC_CENTER_Y - BODY_CENTER_Y_WORLD     # 供 bezel 右壁开口建模用
 
 # ============================================================
 # 后盖嵌入凸台 plug (无螺丝夹持: 边框前端面压住 PCB 背面四周边沿)
@@ -231,13 +240,14 @@ BC_PLUG_RIM = 4.0                              # 边框料宽 (压 PCB 周边 4m
 # plug 中央镂空 = PCB 元件区 + 余量; 镂空必须贯穿整个 plug 深度让开 4mm 高元件.
 BC_PLUG_CAV_W = BC_PLUG_W - 2 * BC_PLUG_RIM
 BC_PLUG_CAV_H = BC_PLUG_H - 2 * BC_PLUG_RIM
-# --- plug 朝显示器侧 Type-C 让位缺口 (头号修复之二) ---
-# plug 边框 (RIM=4mm) 恰好压在 PCB 朝显示器缘, 而 Type-C 母座 + 开口穿透路径正落此处.
-#   若不让位, plug 边框会(a)挡死开口腔内→壳外通路 (实测 ~80mm³ 阻挡), (b)压坏母座.
-#   故在 plug 朝显示器侧边框 (bezel 局部 -X = 后盖局部 +X) 的 Type-C (Y) 处切一缺口,
-#   宽含母座+余量, 沿 X 切穿整条边框 (从镂空内缘到 plug 外缘), 贯穿整个 plug 深度.
-BC_TYPEC_NOTCH_W = TYPEC_W + 2.0               # 缺口沿 Y 宽 (开口宽 + 余量, 让母座+插头)
-BC_TYPEC_NOTCH_X_OVER = 1.0                    # 缺口沿 X 越过 plug 外缘的余量 (确保切穿边框)
+# --- plug 底边 Type-C 让位缺口 (随 Type-C 移到底边而改) ---
+# plug 边框 (RIM=4mm) 压在 PCB 底边(-Y)缘, 而 Type-C 母座 + 朝下开口穿透路径正落此处.
+#   若不让位, plug 底边边框会(a)挡死开口腔内→壳外向下通路, (b)压坏母座.
+#   故在 plug 底边边框 (bezel 局部 -Y = 后盖局部 -Y, 两次翻转 Y 不变) 的 Type-C (X) 处切缺口,
+#   宽含母座+余量, 沿 Y 切穿整条底边边框 (从镂空内缘到 plug 外缘), 贯穿整个 plug 深度.
+#   缺口 X 中心 = TYPEC_LOCAL_X (与 FPC 槽中央缺口在 X 上错开, 互不干涉).
+BC_TYPEC_NOTCH_W = TYPEC_W + 2.0               # 缺口沿 X 宽 (开口宽 + 余量, 让母座+插头)
+BC_TYPEC_NOTCH_Y_OVER = 1.0                    # 缺口沿 Y 越过 plug 外缘的余量 (确保切穿边框)
 
 # ============================================================
 # L 支架几何 (bracket) — 独立局部坐标
@@ -336,15 +346,15 @@ def make_bezel():
                 Cylinder(PCB_LOC_PIN_D / 2, PCB_LOC_PIN_H,
                          align=(Align.CENTER, Align.CENTER, Align.MIN))
 
-        # 7) Type-C 开口 (头号修复): 切在 bezel 局部 -X 侧壁, 穿 2mm 壁.
-        #    朝向推导: bezel 仅经 body_placement 的 Rot(0,180,0) 一次翻转 => 局部 +X 映到
-        #    世界 -X (远离显示器), 局部 -X 映到世界 +X (朝显示器). 故口须切在局部 -X 壁,
-        #    装配后才落到"朝显示器的世界 +X 右侧边". (back_cover 经两次翻转抵消, 与此不同.)
-        #    口中心 Z = TYPEC_CENTER_Z (由 PCB 背面 + 母座半高派生 ≈5.7, 落在 bezel 壁内).
-        #    Y = TYPEC_LOCAL_Y (世界上部锚点反算的 bezel 局部 Y). 沿 X 穿透壁.
-        wall_x = -BEZEL_OUT_W / 2
-        with Locations((wall_x, TYPEC_LOCAL_Y, TYPEC_CENTER_Z)):
-            Box(WALL * 4, TYPEC_W, TYPEC_H,
+        # 7) Type-C 开口 (改: 切在 bezel 底边壁 -Y, 口朝下/-Y 出线), 穿 2mm 壁.
+        #    朝向推导: bezel 经 body_placement 的 Rot(0,180,0) 翻转, Y 分量不变 => 局部 -Y
+        #    映到世界 -Y (向下), 即屏体底边短边. 故口切在局部 -Y 壁, 装配后落世界底边、口朝下.
+        #    X 偏置: TYPEC_LOCAL_X (默认 -20, 偏 -X 背离显示器), 与底边中央 FPC 槽 X 错开.
+        #    Z 跨度: [TYPEC_Z0, TYPEC_Z1] (由母座贴板的实际 Z 包络推出, 落 bezel 壁内).
+        #    沿 Y 穿透 2mm 底边壁: 开口盒沿 Y 取 WALL*4 居中跨壁.
+        wall_y = -BEZEL_OUT_H / 2
+        with Locations((TYPEC_LOCAL_X, wall_y, TYPEC_CENTER_Z)):
+            Box(TYPEC_W, WALL * 4, TYPEC_OPEN_H_Z,
                 align=(Align.CENTER, Align.CENTER, Align.CENTER),
                 mode=Mode.SUBTRACT)
     return bz.part
@@ -374,17 +384,18 @@ def make_back_cover():
                 align=(Align.CENTER, Align.CENTER, Align.MIN),
                 mode=Mode.SUBTRACT)
 
-        # 2b) plug 朝显示器侧 Type-C 让位缺口 (头号修复之二): 切穿朝显示器侧边框.
-        #   后盖局部 +X = 装配翻转后 bezel 局部 -X = 朝显示器壁 (与 bezel Type-C 开口同侧).
-        #   Y 与 bezel 开口同 (翻转不改 Y): TYPEC_LOCAL_Y. 沿 X 从镂空内缘切到 plug 外缘外,
-        #   贯穿整个 plug 深度 + 盖板, 使母座 + 开口穿透路径完全无料阻挡.
-        notch_inner_x = BC_PLUG_CAV_W / 2 - 1.0          # 起点略入镂空区 (与镂空连通)
-        notch_outer_x = BC_PLUG_W / 2 + BC_TYPEC_NOTCH_X_OVER  # 越过 plug 外缘
-        notch_len_x = notch_outer_x - notch_inner_x
-        notch_cx = (notch_inner_x + notch_outer_x) / 2
+        # 2b) plug 底边 Type-C 让位缺口 (随 Type-C 移到底边): 切穿底边(-Y)边框.
+        #   后盖经 back_cover_local + body_placement 两次 Rot(0,180,0): Y 分量不变, X 翻两次抵消.
+        #   而 bezel 仅经 body_placement 一次翻转 (X 翻一次). 两者要落同一世界 X 壁, 后盖局部 X
+        #   须取 bezel 局部 X 的相反数 => 缺口 X 中心 = -TYPEC_LOCAL_X (= +20). Y 同为 -Y 底边.
+        #   沿 -Y 从镂空内缘切到 plug 外缘外, 贯穿整个 plug 深度 + 盖板, 使母座+向下穿透路径无料.
+        notch_inner_y = -(BC_PLUG_CAV_H / 2 - 1.0)        # 起点略入镂空区 (与镂空连通)
+        notch_outer_y = -(BC_PLUG_H / 2 + BC_TYPEC_NOTCH_Y_OVER)  # 越过 plug 外缘 (-Y 向)
+        notch_len_y = notch_inner_y - notch_outer_y
+        notch_cy = (notch_inner_y + notch_outer_y) / 2
         notch_h = BACK_COVER_PLATE_T + BC_PLUG_DEPTH + 0.02
-        with Locations((notch_cx, TYPEC_LOCAL_Y, -0.01)):
-            Box(notch_len_x, BC_TYPEC_NOTCH_W, notch_h,
+        with Locations((-TYPEC_LOCAL_X, notch_cy, -0.01)):
+            Box(BC_TYPEC_NOTCH_W, notch_len_y, notch_h,
                 align=(Align.CENTER, Align.CENTER, Align.MIN),
                 mode=Mode.SUBTRACT)
 
@@ -665,12 +676,13 @@ def make_pcba():
         with Locations((0, 0, PCB_BACK_Z)):
             Box(comp_w, comp_h, COMP_H_MAX,
                 align=(Align.CENTER, Align.CENTER, Align.MIN))
-    # Type-C 母座: PCB "朝显示器缘", 元件面朝后, 母座高 TYPEC_BODY_H, 中心 Y=TYPEC_LOCAL_Y.
-    #   建模在 bezel 局部 -X 缘 (经 body_placement 翻转后落世界 +X 朝显示器, 与开口同侧).
-    tc_body_l = 7.0     # 母座沿 X 进深
+    # Type-C 母座: PCB 底边(-Y)缘, 元件面朝后, 母座高 TYPEC_BODY_H, 口朝 -Y(向下).
+    #   X 中心 = TYPEC_LOCAL_X (偏 -X 背离显示器, 避开底边中央 FPC 排座).
+    #   母座沿 Y 进深 tc_body_l, 紧贴板底缘 (-Y) 内侧; 沿 X 宽 = TYPEC_W-2 (开口内母座本体).
+    tc_body_l = 7.0     # 母座沿 Y 进深
     with BuildPart() as _tc:
-        with Locations((-PCB_W / 2 + tc_body_l / 2, TYPEC_LOCAL_Y, PCB_BACK_Z)):
-            Box(tc_body_l, TYPEC_W - 2.0, TYPEC_BODY_H,
+        with Locations((TYPEC_LOCAL_X, -PCB_H / 2 + tc_body_l / 2, PCB_BACK_Z)):
+            Box(TYPEC_W - 2.0, tc_body_l, TYPEC_BODY_H,
                 align=(Align.CENTER, Align.CENTER, Align.MIN))
     # 24P FPC 排座: PCB 底边中点, 元件面朝后, 矮座.
     with BuildPart() as _fpc:
@@ -852,10 +864,10 @@ def main():
         print(f"           后盖({bx:+.2f},{by:+.2f}) -> 对接面(Y{mate_y:+.2f},Z{mate_z:+.2f}) 距期望={d:.4f}")
     print(f"         最大镜像偏差 = {max_d:.4f}mm -> {'通过(≈0)' if max_d < 1e-6 else '检查'}")
 
-    # --- 4) Type-C 真穿透 (头号修复, 最重要) ---
-    #   口现切在 bezel +X 右侧壁 (z 由 PCB 背面 + 母座半高派生 ≈5.7, 落 bezel 壁内, 只切 bezel).
-    #   验证: 在装配后的屏体 (bezel ∪ back_cover 合并实体) 上, 放一探针盒跨越右侧壁
-    #   (从腔内 x 到壳外 x), 与"合并实体"做布尔相交, 相交≈0 => 真有口连通腔内外.
+    # --- 4) Type-C 真穿透 (最重要) — 改: 口在底边壁 -Y, 朝下/-Y 出线 ---
+    #   口现切在 bezel 底边壁 -Y (X 偏置 TYPEC_LOCAL_X 避 FPC, Z 跨母座包络, 落 bezel 壁内).
+    #   验证: 在装配后的屏体 (bezel ∪ back_cover 合并实体) 上, 放一探针盒跨越底边壁
+    #   (沿 -Y 从腔内连到壳外), 与"合并实体"做布尔相交, 相交≈0 => 真有口连通腔内外.
     from build123d import Cylinder as _Cyl
     _mate = make_bracket.mate
     place4 = body_placement()
@@ -864,50 +876,56 @@ def main():
     _bc_w = place4 * (back_cover_local() * make_back_cover())
     body_merged = _bz_w + _bc_w     # 合并成一个屏体实体
     _bzbb4 = _bz_w.bounding_box()
-    # 朝显示器壁 = 世界 max X (装配 Rot(0,180,0) 把 bezel 局部 -X 映到世界 +X 朝显示器).
-    #   开口切在 bezel 局部 -X 壁 (见 make_bezel 步骤 7), 装配后落世界 max X.
-    right_wall_x, left_wall_x = _bzbb4.max.X, _bzbb4.min.X
-    # 探针盒: 在开口中心 (Y,Z) 跨越朝显示器壁, 从腔内 (壁内 3mm) 连到壳外 (壁外 3mm).
-    #   探针截面 = 开口标称 (TYPEC_W×TYPEC_H), 略缩 0.4 避开开口边/壁数值噪声.
-    #   开口世界中心: 用一个跟随装配的探针盒求其世界包围盒中心 (杜绝手算坐标误差).
-    #   注意: 开口在 bezel 局部 -X 壁, 故探针盒亦放 -BEZEL_OUT_W/2 (与开口同壁).
+    # 底边壁 = 世界 min Y (装配 Rot(0,180,0) 不改 Y, bezel 局部 -Y 映到世界 -Y 底边).
+    bottom_wall_y, top_wall_y = _bzbb4.min.Y, _bzbb4.max.Y
+    # 开口世界包围盒: 用一个跟随装配的探针盒 (= 开口标称几何) 求世界包围盒 (杜绝手算坐标误差).
+    #   开口在 bezel 局部 -Y 壁, X=TYPEC_LOCAL_X, Z 跨 [TYPEC_Z0,TYPEC_Z1].
     with BuildPart() as _tcp:
-        with Locations((-BEZEL_OUT_W / 2, TYPEC_LOCAL_Y, TYPEC_CENTER_Z)):
-            Box(WALL * 4, TYPEC_W, TYPEC_H, align=(Align.CENTER,) * 3)
+        with Locations((TYPEC_LOCAL_X, -BEZEL_OUT_H / 2, TYPEC_CENTER_Z)):
+            Box(TYPEC_W, WALL * 4, TYPEC_OPEN_H_Z, align=(Align.CENTER,) * 3)
     _tcw = (place4 * _tcp.part).bounding_box()     # 口现在 bezel 上, 仅 bezel 变换
     typec_cx = (_tcw.min.X + _tcw.max.X) / 2
     typec_cy = (_tcw.min.Y + _tcw.max.Y) / 2
     typec_cz = (_tcw.min.Z + _tcw.max.Z) / 2
-    typec_y0, typec_y1 = _tcw.min.Y, _tcw.max.Y
-    # 穿透探针: 沿世界 +X 从右壁内 (right_wall_x-3) 到壳外 (right_wall_x+3), 长 6+WALL.
+    typec_x0, typec_x1 = _tcw.min.X, _tcw.max.X
+    # 穿透探针: 沿世界 -Y 从底壁内 (bottom_wall_y+3) 到壳外 (bottom_wall_y-3), 长 6+WALL.
+    #   探针截面 = 开口标称 (X=TYPEC_W, Z=TYPEC_OPEN_H_Z), 略缩 0.4 避开开口边/壁数值噪声.
     probe_len = WALL + 6.0
-    probe_cx = right_wall_x - 3.0 + probe_len / 2   # 从腔内一路探到壳外
+    probe_cy = bottom_wall_y + 3.0 - probe_len / 2   # 从腔内一路探到壳外 (向 -Y)
     with BuildPart() as _probe:
-        with Locations((probe_cx, typec_cy, typec_cz)):
-            Box(probe_len, TYPEC_W - 0.4, TYPEC_H - 0.4, align=(Align.CENTER,) * 3)
+        with Locations((typec_cx, probe_cy, typec_cz)):
+            Box(TYPEC_W - 0.4, probe_len, TYPEC_OPEN_H_Z - 0.4, align=(Align.CENTER,) * 3)
     probe_solid = _probe.part
     block_vol = (probe_solid & body_merged).volume   # 探针被料阻挡的体积
     probe_vol = probe_solid.volume
     true_through = block_vol < 1e-3
-    on_right = abs(typec_cx - right_wall_x) < abs(typec_cx - left_wall_x)
-    body_top_y = _bzbb4.max.Y
-    depth_below_top = body_top_y - typec_cy
-    print(f"[4 TypeC真穿透] *** 头号修复 ***")
-    print(f"          开口切在 bezel 局部 -X 壁 (装配后落世界 max X = 朝显示器壁); "
+    on_bottom = abs(typec_cy - bottom_wall_y) < abs(typec_cy - top_wall_y)
+    facing_down = _tcw.min.Y <= bottom_wall_y + 1e-6   # 口下沿触底壁 => 朝下 -Y 出线
+    print(f"[4 TypeC真穿透] *** 最重要 ***")
+    print(f"          开口切在 bezel 局部 -Y 底边壁 (装配后落世界 min Y = 底边); 口朝 -Y (向下出线); "
           f"口世界中心 X={typec_cx:.2f} Y={typec_cy:.2f} Z={typec_cz:.2f}")
     print(f"          口世界范围 X[{_tcw.min.X:.2f},{_tcw.max.X:.2f}] Y[{_tcw.min.Y:.2f},{_tcw.max.Y:.2f}] "
-          f"Z[{_tcw.min.Z:.2f},{_tcw.max.Z:.2f}]; 朝向 法向 +X (出线朝显示器)")
-    print(f"          屏体右壁(朝显示器)X={right_wall_x:.2f} 左壁X={left_wall_x:.2f}; 在右侧边? {on_right}")
-    print(f"          穿透探针 (跨右壁, 腔内->壳外, 体积 {probe_vol:.2f}mm3) ∩ 屏体合并实体 = "
+          f"Z[{_tcw.min.Z:.2f},{_tcw.max.Z:.2f}]; 朝向 法向 -Y (向下出线)")
+    print(f"          屏体底壁 Y={bottom_wall_y:.2f} 顶壁 Y={top_wall_y:.2f}; 在底边? {on_bottom}; "
+          f"口朝下(下沿触底壁)? {facing_down}")
+    print(f"          穿透探针 (跨底壁, 腔内->壳外向下, 体积 {probe_vol:.2f}mm3) ∩ 屏体合并实体 = "
           f"{block_vol:.4f} mm3 -> {'通过(真穿透, 无料阻挡)' if true_through else '失败(口被封死!)'}")
-    print(f"          竖向 = 屏顶下方 {depth_below_top:.1f}mm (上部, 目标 12~30) -> "
-          f"{'通过' if 12 <= depth_below_top <= 30 else '检查'}")
-    # 不与支柱重叠 (支柱世界 Y∈[-STRUT_W,0], X<0 远离右壁):
+    # 不与 FPC 折回槽 X 重叠 (要点: ≥2mm 间隔):
+    fpc_slot_x0, fpc_slot_x1 = -FPC_SLOT_W / 2, FPC_SLOT_W / 2
+    # Type-C 开口在底边壁的 X 范围 = 口世界 X 范围 (底边壁 X 与 bezel 局部 X 等向, 仅平移):
+    tc_x0, tc_x1 = typec_x0, typec_x1
+    # X 间隔 (口在 FPC 槽 -X 一侧): 槽左缘 - 口右缘:
+    gap_to_fpc = fpc_slot_x0 - tc_x1 if tc_x1 <= fpc_slot_x0 else (tc_x0 - fpc_slot_x1)
+    x_no_overlap = (tc_x1 <= fpc_slot_x0) or (tc_x0 >= fpc_slot_x1)
+    print(f"          Type-C 开口世界 X[{tc_x0:.2f},{tc_x1:.2f}] vs FPC 折回槽世界 X[{fpc_slot_x0:.2f},{fpc_slot_x1:.2f}]; "
+          f"不交叠? {x_no_overlap}; X 间隔={gap_to_fpc:.2f}mm -> "
+          f"{'通过(不重叠且 ≥2mm)' if x_no_overlap and gap_to_fpc >= 2.0 else '检查'}")
+    # 不与支柱重叠 (支柱世界 Y∈[-STRUT_W,0] 屏顶高度, Type-C 在底边 Y≈min; X<0 一侧):
     strut_wy0 = _mate["strut_yc"] - _mate["strut_w"] / 2
     strut_wy1 = _mate["strut_yc"] + _mate["strut_w"] / 2
-    strut_y_overlap = not (typec_y1 < strut_wy0 or typec_y0 > strut_wy1)
-    print(f"          支柱世界 Y[{strut_wy0:.2f},{strut_wy1:.2f}] X<0 远离右壁; Type-C 与支柱 Y 重叠? "
-          f"{strut_y_overlap} -> {'通过(不重叠)' if not strut_y_overlap else '检查(Y重叠;支柱X远离右壁)'}")
+    strut_y_overlap = not (_tcw.max.Y < strut_wy0 or _tcw.min.Y > strut_wy1)
+    print(f"          支柱世界 Y[{strut_wy0:.2f},{strut_wy1:.2f}] (屏顶高度) vs Type-C Y[{_tcw.min.Y:.2f},{_tcw.max.Y:.2f}] (底边); "
+          f"Y 重叠? {strut_y_overlap} -> {'通过(不重叠, 一上一下)' if not strut_y_overlap else '检查'}")
     # 不与磁区干涉 (磁腔 4 圆柱, 真实布尔逐个核验):
     _tc_solid_w = place4 * _tcp.part
     _mag_v_max = 0.0
