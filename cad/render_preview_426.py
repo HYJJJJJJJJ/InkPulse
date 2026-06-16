@@ -111,74 +111,71 @@ def draw_asm(ax, elev, azim, title, xlabel, ylabel, zlabel, aspect=(1, 1, 1)):
     ax.set_xlabel(xlabel); ax.set_ylabel(ylabel); ax.set_zlabel(zlabel)
 
 
-# Type-C 开口世界位置 (从建模脚本取参数, 用于在装配视图上醒目标注)
+# POGO / Type-C 世界位置 (从建模脚本取参数, 用于在装配视图上醒目标注)
 import importlib.util as _ilu
 _spec = _ilu.spec_from_file_location("enclosure_426", "cad/enclosure_426.py")
 _E = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_E)
 _E.make_bracket()  # 填充 mate
-# Type-C 开口世界中心: 开口切在 bezel 局部 -Y 底边壁 (装配后落世界 min Y = 底边, 口朝下/-Y).
-#   故标注盒放 -BEZEL_OUT_H/2 (底边), X=TYPEC_LOCAL_X 偏置; 只经 bezel 装配变换 (body_placement).
-_tc_place = _E.body_placement()
+_mate = _E.make_bracket.mate
 from build123d import Box as _TCBox, Locations as _TCLoc, BuildPart as _TCBP, Align as _TCAl
-with _TCBP() as _tcp:
-    with _TCLoc((_E.TYPEC_LOCAL_X, -_E.BEZEL_OUT_H/2, _E.TYPEC_CENTER_Z)):
-        _TCBox(_E.TYPEC_W, _E.WALL*4, _E.TYPEC_OPEN_H_Z, align=(_TCAl.CENTER,)*3)
-_tcbb = (_tc_place * _tcp.part).bounding_box()
-TC_X = (_tcbb.min.X + _tcbb.max.X) / 2
-TC_Y = (_tcbb.min.Y + _tcbb.max.Y) / 2
-TC_Z = (_tcbb.min.Z + _tcbb.max.Z) / 2
-# FPC 折回槽世界 X 中心 (用于仰视图标注). 槽现已禁用 (FPC_SLOT_ENABLE=False), 不再标注.
-FPC_X = FPC_Y = FPC_Z = None
-if _E.FPC_SLOT_ENABLE:
-    _fpc_place = _E.body_placement()
-    with _TCBP() as _fpcp:
-        with _TCLoc((0.0, -_E.BEZEL_OUT_H/2, _E.TYPEC_CENTER_Z)):
-            _TCBox(_E.FPC_SLOT_W, _E.WALL*4, _E.TYPEC_OPEN_H_Z, align=(_TCAl.CENTER,)*3)
-    _fpcbb = (_fpc_place * _fpcp.part).bounding_box()
-    FPC_X = (_fpcbb.min.X + _fpcbb.max.X) / 2
-    FPC_Y = (_fpcbb.min.Y + _fpcbb.max.Y) / 2
-    FPC_Z = (_fpcbb.min.Z + _fpcbb.max.Z) / 2
+# 架构变更: Type-C 移到支架底边 (口朝 -Y), POGO 在对接面 (针朝屏 +Z).
+# --- Type-C 世界中心 (支架底边壁, 朝 -Y) ---
+TC_X = _mate["tc_cx"]
+TC_Y = _mate["bottom_y"]
+TC_Z = _mate["tc_cz"]
+# --- POGO 针阵世界坐标 (对接面, 针朝屏 +Z) ---
+POGO_PINS = _mate["pogo_pins_world"]
+POGO_CX = _mate["pogo_cx"]; POGO_CY = _mate["pogo_cy"]; POGO_PIN_Z = _mate["pogo_pin_tip_z"]
 
 
 def mark_typec(ax):
-    """在装配视图上用红点 + 箭头标出 Type-C 开口 (底边朝下/-Y 出线)."""
+    """在装配视图上用红点 + 箭头标出支架底边 Type-C (口朝下 -Y 出线)."""
     ax.scatter([TC_X], [TC_Y], [TC_Z], c="#d11", s=70, marker="o",
                depthshade=False, edgecolors="k", zorder=10)
-    # 出线方向箭头: 朝 -Y (向下, 垂直沿显示器左侧落下)
     ax.quiver(TC_X, TC_Y, TC_Z, 0, -14, 0, color="#d11", linewidth=2.2, zorder=11)
-    ax.text(TC_X + 2, TC_Y - 10, TC_Z + 4,
-            f"Type-C 开口\n(底边朝下出线, 偏 -X 避 FPC)\n法向 -Y 向下",
+    ax.text(TC_X + 2, TC_Y - 12, TC_Z + 4,
+            "防水 Type-C\n(支架底边, 口朝下 -Y)\n体深入 +Y 14mm",
             color="#a00", fontsize=8, zorder=12)
 
 
-# 格 7: 装配等轴 (看整体落位) + Type-C 标注
+def mark_pogo(ax):
+    """在装配视图上用绿点 + 箭头标出对接面 POGO 针阵 (针朝屏 +Z)."""
+    xs = [p[0] for p in POGO_PINS]; ys = [p[1] for p in POGO_PINS]; zs = [p[2] for p in POGO_PINS]
+    ax.scatter(xs, ys, zs, c="#0a0", s=45, marker="^", depthshade=False,
+               edgecolors="k", zorder=10)
+    # 针朝屏方向箭头: +Z (朝屏体后盖)
+    ax.quiver(POGO_CX, POGO_CY, POGO_PIN_Z, 0, 0, 6, color="#0a0", linewidth=2.2, zorder=11)
+    ax.text(POGO_CX - 2, POGO_CY + 3, POGO_PIN_Z + 3,
+            "POGO 4 针\n(对接面, 针朝屏 +Z)\n+磁吸 N/S",
+            color="#070", fontsize=8, zorder=12)
+
+
+# 格 7: 装配等轴 (看整体落位) + POGO + Type-C 标注
 ax_aiso = fig.add_subplot(NR, NC, 7, projection="3d")
 draw_asm(ax_aiso, 18, -65,
-         f"Assembly 等轴 (屏顶=显示器顶持平, 屏在左侧外)\nType-C 在底边朝下出线·偏 -X 避 FPC (红点/箭头)",
+         "Assembly 等轴 (屏顶=显示器顶持平, 屏在左侧外)\nPOGO 在对接面针朝屏(绿) · Type-C 支架底边朝下(红)",
          "X (右=朝显示器)", "Y (上)", "Z (朝用户)")
+mark_pogo(ax_aiso)
 mark_typec(ax_aiso)
 
-# 格 8: 装配侧视 (沿 -X 看 Y-Z 平面) — 一眼可见 墨水屏与显示器共面、支柱藏背后、不向 +Z 凸
+# 格 8: 装配侧视 (沿 -X 看 Y-Z 平面) — 一眼可见 墨水屏与显示器共面、支柱藏背后
 ax_side = fig.add_subplot(NR, NC, 8, projection="3d")
 draw_asm(ax_side, 6, 0,
-         "Assembly 侧视 (沿 -X 看 Y-Z): 墨水屏与显示器正面共面\n支柱/对接板藏屏后; Type-C 底边朝下出线 (红点)",
+         "Assembly 侧视 (沿 -X 看 Y-Z): 墨水屏与显示器正面共面\n支柱/对接板藏屏后; POGO(绿)朝屏; Type-C(红)底边朝下",
          "X (右=朝显示器)", "Y (上)", "Z (朝用户=+Z)", aspect=(0.35, 1, 1))
+mark_pogo(ax_side)
 mark_typec(ax_side)
 
 # ============================================================
-# 第 3 行: Type-C 专属视图 (过 Type-C 的竖直剖切露内部 + 仰视看底边)
+# 第 3 行: POGO 专属视图 (对接面针朝屏) + Type-C 专属视图 (支架底边剖切露 14mm 体腔)
 # ============================================================
-# 重建带 label 的"屏体+PCBA"世界三角面 (含 bezel/back_cover/pcba/screen_ref, 不含 monitor/bracket),
-# 以便剖切时只剖屏体, 露出 PCB/支柱/Type-C 母座/前框侧壁开口.
-body_tris = []  # (color, tri)
+# 收集装配世界三角面, 按 label 分色 (含 bracket + 屏体 + pcba), 供 POGO/Type-C 局部视角复用.
+all_node_tris = []  # (color, tri)
+pcba_col = {"pcb": "#2f7d4f", "components": "#888888",
+            "pogo_pads": "#d11", "fpc_conn": "#e08a2b"}
 for node in (asm.children or []):
     lbl = getattr(node, "label", "")
-    if lbl in ("monitor_ref", "bracket"):
-        continue   # 剖切图聚焦屏体内部, 不画显示器/支架
     col = color_by_label.get(lbl, "#e0a0a0" if lbl == "pcba" else "#cccccc")
-    # pcba 子件分色: PCB 深绿, 元件灰, Type-C 母座红, FPC 座橙
-    pcba_col = {"pcb": "#2f7d4f", "components": "#888888",
-                "typec_recept": "#d11", "fpc_conn": "#e08a2b"}
     if lbl == "pcba":
         for sub in (node.children or []):
             scol = pcba_col.get(getattr(sub, "label", ""), "#e0a0a0")
@@ -187,71 +184,66 @@ for node in (asm.children or []):
                 v = np.array([(p.X, p.Y, p.Z) for p in verts])
                 tri = np.array([v[list(f)] for f in faces])
                 if len(tri):
-                    body_tris.append((scol, tri))
+                    all_node_tris.append((scol, tri, lbl))
         continue
     for s in node.solids():
         verts, faces = s.tessellate(0.4)
         v = np.array([(p.X, p.Y, p.Z) for p in verts])
         tri = np.array([v[list(f)] for f in faces])
         if len(tri):
-            body_tris.append((col, tri))
+            all_node_tris.append((col, tri, lbl))
 
-# 剖切: 过 Type-C 的竖直面 X=TC_X 切开, 只保留 X>=TC_X-0.5 半 (剖面朝 -X 观察者),
-#   露出底边壁开口 / PCB 底缘 / Type-C 母座 / 内腔。按三角面中心 X 过滤 (轻量裁剪).
-CUT_X = TC_X - 0.5
-def clip_above_x(tris_list, xmin):
-    out = []
-    for col, tri in tris_list:
-        cx = tri.reshape(-1, 3)[:, 0].reshape(-1, 3).mean(1)  # 每三角面中心 X
-        keep = tri[cx >= xmin]
-        if len(keep):
-            out.append((col, keep))
-    return out
-sect = clip_above_x(body_tris, CUT_X)
-spts = np.vstack([t for _, t in sect]).reshape(-1, 3)
-smn, smx = spts.min(0), spts.max(0); sctr = (smn + smx) / 2; sr = (smx - smn).max() / 2
 
-# 格 9: 剖切等轴 (过 Type-C 的竖直面) — 看 Type-C 母座对准底边壁开口 (口朝下)、PCB 底缘叠层
-ax_sec = fig.add_subplot(NR, NC, 9, projection="3d")
-for col, tri in sect:
-    ax_sec.add_collection3d(Poly3DCollection(tri, alpha=0.9, facecolor=col,
+def _draw_subset(ax, items, elev, azim, ctr, r, aspect=(1, 1, 1), alpha=0.9):
+    for col, tri in items:
+        ax.add_collection3d(Poly3DCollection(tri, alpha=alpha, facecolor=col,
                                              edgecolor="#333", linewidths=0.06))
-ax_sec.set_xlim(sctr[0]-sr, sctr[0]+sr); ax_sec.set_ylim(sctr[1]-sr, sctr[1]+sr)
-ax_sec.set_zlim(sctr[2]-sr, sctr[2]+sr)
-ax_sec.set_box_aspect((1, 1, 1)); ax_sec.view_init(elev=22, azim=-110)
-ax_sec.set_title(f"屏体剖切 (过 Type-C 竖直面 X={TC_X:.0f}): 露 PCB(绿)/\n"
-                 f"Type-C 母座(红)对准底边壁开口 (口朝下 -Y)", fontsize=9)
-ax_sec.set_xlabel("X (右=朝显示器)"); ax_sec.set_ylabel("Y (上)"); ax_sec.set_zlabel("Z")
-mark_typec(ax_sec)
+    ax.set_xlim(ctr[0]-r, ctr[0]+r); ax.set_ylim(ctr[1]-r, ctr[1]+r); ax.set_zlim(ctr[2]-r, ctr[2]+r)
+    ax.set_box_aspect(aspect); ax.view_init(elev=elev, azim=azim)
+    ax.set_xlabel("X (右=朝显示器)"); ax.set_ylabel("Y (上)"); ax.set_zlabel("Z")
 
-# 格 10: 仰视 — 从底边 -Y 方向看 (向上看底边壁), 露出底边 FPC 槽 + Type-C 开口 (两者 X 错开)
-# 只画屏体 (bezel+back_cover) 外观, 视线从 -Y 朝 +Y, 正对底边短边壁.
-shell_tris = [(c, t) for (c, t) in body_tris
-              if c in ("#9bb8d3", "#a8c8a0")]  # 仅 bezel(蓝)/back_cover(绿)
-ax_wall = fig.add_subplot(NR, NC, 10, projection="3d")
-for col, tri in shell_tris:
-    ax_wall.add_collection3d(Poly3DCollection(tri, alpha=0.95, facecolor=col,
-                                              edgecolor="#456", linewidths=0.08))
-wpts = np.vstack([t for _, t in shell_tris]).reshape(-1, 3)
-wmn, wmx = wpts.min(0), wpts.max(0)
-# 聚焦底边壁 (世界 min Y) 一带: 沿 Y 收紧, X 跨底边宽 (含 FPC 中央 + Type-C 偏 -X), 看两口错开.
-ax_wall.set_xlim(wmn[0] - 2, wmx[0] + 2)
-ax_wall.set_ylim(wmn[1] - 2, wmn[1] + 14)
-ax_wall.set_zlim(-12, 2)
-ax_wall.set_box_aspect((3.0, 0.6, 1.0))
-# elev=-12, azim=-90: 自底边 -Y 略仰视正对底边壁, 壁上 Type-C 方口(偏 -X)清晰可见.
-ax_wall.view_init(elev=-12, azim=-90)
-_wall_title = ("仰视 (从底边 -Y 向上看底边壁):\nType-C 方口(偏 -X) 朝下"
-               + ("; FPC 槽(中央) X 错开" if _E.FPC_SLOT_ENABLE else "; FPC 槽暂移除"))
-ax_wall.set_title(_wall_title, fontsize=9)
-ax_wall.set_xlabel("X (右=朝显示器)"); ax_wall.set_ylabel("Y (上)"); ax_wall.set_zlabel("Z")
-# 标注 Type-C (红); FPC 槽 (橙) 仅在启用时标注
-mark_typec(ax_wall)
-if _E.FPC_SLOT_ENABLE:
-    ax_wall.scatter([FPC_X], [FPC_Y], [FPC_Z], c="#e08a2b", s=70, marker="s",
-                    depthshade=False, edgecolors="k", zorder=10)
-    ax_wall.text(FPC_X + 2, FPC_Y + 4, FPC_Z + 3, "FPC 折回槽\n(底边中央)",
-                 color="#a05a00", fontsize=8, zorder=12)
+
+# --- 格 9: POGO 区局部 (支架对接面 + 屏体后盖对接区), 看 POGO 针朝屏 + pad 窗/钢片 ---
+# 聚焦 POGO 中心一带 (世界): 取该邻域三角面 (X,Y 邻域), 不含显示器, 画对接面与后盖.
+P_CX, P_CY, P_CZ = POGO_CX, POGO_CY, (POGO_PIN_Z + _mate["z_top"]) / 2
+RAD = 26.0
+def _near_pogo(tri):
+    c = tri.reshape(-1, 3).mean(0)
+    return abs(c[0]-P_CX) < RAD and abs(c[1]-P_CY) < RAD and c[2] > _mate["z_bot"]-3
+# 逐三角面邻域裁剪 (聚焦 POGO):
+pogo_items = []
+for (col, tri, lbl) in all_node_tris:
+    if lbl not in ("bracket", "back_cover", "pcba"):
+        continue
+    keep = np.array([_near_pogo(t) for t in tri])
+    if keep.any():
+        pogo_items.append((col, tri[keep]))
+ax_pogo = fig.add_subplot(NR, NC, 9, projection="3d")
+_draw_subset(ax_pogo, pogo_items, 16, -60, (P_CX, P_CY, P_CZ), RAD, aspect=(1, 1, 0.8))
+ax_pogo.set_title("POGO 区局部 (对接面棕 + 后盖绿): POGO 4 针朝屏 +Z(绿▲)\n"
+                  "后盖 4 pad 窗(红)+2 钢片腔 对位 pogo 针/磁", fontsize=9)
+mark_pogo(ax_pogo)
+
+# --- 格 10: Type-C 区剖切 (过支架底边竖直面 X=TC_X), 露 14mm 体腔 + 朝下开孔 + 走线腔 ---
+# 取 bracket 三角面, 过 X=TC_X 竖直面切, 保留 X>=TC_X-0.3 半 (剖面朝 -X 看体腔内部).
+CUT_X = TC_X - 0.3
+br_items = [(col, tri) for (col, tri, lbl) in all_node_tris if lbl == "bracket"]
+sect = []
+for col, tri in br_items:
+    cx = tri.reshape(-1, 3)[:, 0].reshape(-1, 3).mean(1)
+    keep = tri[cx >= CUT_X]
+    if len(keep):
+        sect.append((col, keep))
+# 聚焦 Type-C 一带 (底边壁 + 体腔): 中心取口与体腔中段.
+TC_FOCUS_Y = (_mate["bottom_y"] + _mate["channel_y_bot"]) / 2
+spts = np.vstack([t for _, t in sect]).reshape(-1, 3)
+# 以 Type-C 邻域定视野 (避免整支架太小):
+foc_ctr = (TC_X, TC_FOCUS_Y, TC_Z); foc_r = 16.0
+ax_tc = fig.add_subplot(NR, NC, 10, projection="3d")
+_draw_subset(ax_tc, sect, 12, -100, foc_ctr, foc_r, aspect=(1, 1.2, 0.8))
+ax_tc.set_title(f"Type-C 区剖切 (过支架底边 X={TC_X:.0f}):\n"
+                "防水母座朝下开孔(红) + 体腔深入 +Y 14mm + 上接走线腔", fontsize=9)
+mark_typec(ax_tc)
 
 plt.tight_layout()
 plt.savefig(f"{OUT}/preview_426.png", dpi=115)
