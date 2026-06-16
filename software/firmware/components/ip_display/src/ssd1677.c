@@ -14,6 +14,8 @@
 
 static const char *TAG = "ssd1677";
 
+static const uint8_t *s_last_frame;   // disp_show 收到的帧指针(指向 main 的 s_framebuf, 长驻)
+
 static void wait_busy(void)
 {
     // SSD1677 BUSY: 高=忙(规格书 5-4)。等到低电平。
@@ -88,9 +90,30 @@ void ssd1677_write_ram(const uint8_t *plane)
         ssd1677_ram_row(plane + y * SSD_ROW_BYTES);
 }
 
+// 把整帧写入 0x26(旧 RAM) —— 局刷靠 0x24(新) vs 0x26(旧) 差异翻转,
+// 每次刷新后同步, 保证下次局刷基准 = 当前屏上内容。
+void ssd1677_sync_old_ram(const uint8_t *plane)
+{
+    set_ram_counter();
+    hal_spi_cmd(0x26);
+    for (int y = 0; y < SSD_HEIGHT; y++)
+        ssd1677_ram_row(plane + y * SSD_ROW_BYTES);
+}
+
 void ssd1677_update_full(void)
 {
     hal_spi_cmd(0x22); hal_spi_data(0xF7);
+    hal_spi_cmd(0x20);
+    vTaskDelay(pdMS_TO_TICKS(10));
+    wait_busy();
+}
+
+// 快波形局刷: 差异翻转、不闪、快。纯波形触发(0x26 同步由 disp 层做)。
+// 波形选 0xCF(Display Mode 2, 不重载 OTP 全刷波形)。真机若有重影/不刷,
+// 见 spec §6: 改 0xFF 或经 0x32 写自定义局刷 LUT。
+void ssd1677_update_partial(void)
+{
+    hal_spi_cmd(0x22); hal_spi_data(0xCF);
     hal_spi_cmd(0x20);
     vTaskDelay(pdMS_TO_TICKS(10));
     wait_busy();
@@ -122,11 +145,22 @@ static esp_err_t disp_show(const uint8_t *frame, size_t len)
         ESP_LOGE(TAG, "frame too short: %u < %u", (unsigned)len, SSD_PLANE_BYTES);
         return ESP_ERR_INVALID_ARG;
     }
+    s_last_frame = frame;
     ssd1677_write_ram(frame);
     return ESP_OK;
 }
 
-static void disp_refresh(void) { ssd1677_update_full(); }
+static void disp_refresh(void)
+{
+    ssd1677_update_full();
+    if (s_last_frame) ssd1677_sync_old_ram(s_last_frame);   // 全刷后基准=当前帧
+}
+
+static void disp_refresh_partial(void)
+{
+    ssd1677_update_partial();
+    if (s_last_frame) ssd1677_sync_old_ram(s_last_frame);   // 局刷后基准=当前帧
+}
 
 static void disp_clear(void)
 {
@@ -146,7 +180,8 @@ extern void ssd1677_selftest_run(void);
 
 static const display_if_t s_if = {
     .init = disp_init, .get_caps = disp_get_caps, .show = disp_show,
-    .refresh = disp_refresh, .clear = disp_clear, .sleep = disp_sleep,
+    .refresh = disp_refresh, .refresh_partial = disp_refresh_partial,
+    .clear = disp_clear, .sleep = disp_sleep,
     .selftest = ssd1677_selftest_run,
 };
 

@@ -16,3 +16,5 @@ void ssd1677_write_ram(const uint8_t *plane);   // 写 0x24 整屏(48000B 概念
 void ssd1677_update_full(void);                  // 0x22(0xF7)+0x20 全刷 + 等忙
 void ssd1677_ram_begin(void);                    // set RAM counter + 发 0x24, 准备流式写行
 void ssd1677_ram_row(const uint8_t *row);        // 发一行(SSD_ROW_BYTES=100B, bit=1=黑, 内部按极性)
+void ssd1677_update_partial(void);                 // 0x22(0xCF)+0x20 快波形局刷 + 等忙(纯波形触发)
+void ssd1677_sync_old_ram(const uint8_t *plane);   // 把当前帧写入 0x26(下次局刷基准), 行式流写
