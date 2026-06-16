@@ -13,6 +13,8 @@
 
 static const char *TAG = "inkpulse";
 
+#define PARTIAL_BEFORE_FULL 30   // 连续局刷达此次数 → 强制一次全刷洗残影
+
 static uint8_t s_framebuf[96000];
 
 // 定义 INKPULSE_VERIFY(idf.py build -DINKPULSE_VERIFY=1 或在此 #define)
@@ -133,23 +135,39 @@ void app_main(void)
 
     bool online = true;       // 连接状态, 仅在翻转时刷屏(避免 e-ink 频繁全刷)
     int  refresh_token = 0;   // hub 刷新令牌基线; 变化=web 请求真机刷新
+    bool first_frame = true;   // 循环内首次出图 → 强制全刷, 建立 0x26 内容基准
+    int  partial_count = 0;    // 已连续局刷次数
     while (1) {
         sensor_env_t env; sensor->read(&env);
         channel_result_t r = { .changed = false, .next_refresh_s = 600 };
         esp_err_t fr = chan->fetch(s_framebuf, sizeof s_framebuf, &env, &r);
         bool now_online = (fr == ESP_OK);
 
+        bool changed_any = false, recovered = false;
         if (now_online && r.changed) {
-            disp->show(s_framebuf, caps.frame_bytes);   // 新帧已覆盖整 buffer(含红叉区)
-            disp->refresh();
+            disp->show(s_framebuf, caps.frame_bytes);   // 新帧已覆盖整 buffer(含叉区)
+            changed_any = true;
         } else if (!now_online && online) {
-            mark_offline(s_framebuf, &caps, true);       // 在线->离线: 叠红叉刷一次
+            mark_offline(s_framebuf, &caps, true);       // 在线->离线: 叠叉
             disp->show(s_framebuf, caps.frame_bytes);
-            disp->refresh();
+            changed_any = true;
         } else if (now_online && !online) {
-            mark_offline(s_framebuf, &caps, false);      // 离线->在线且内容未变: 清红叉刷一次
+            mark_offline(s_framebuf, &caps, false);      // 离线->在线: 清叉
             disp->show(s_framebuf, caps.frame_bytes);
-            disp->refresh();
+            changed_any = true;
+            recovered = true;                            // 离线恢复 → 强制全刷
+        }
+        if (changed_any) {
+            bool force_full = first_frame || recovered ||
+                              (partial_count >= PARTIAL_BEFORE_FULL);
+            if (disp->refresh_partial && !force_full) {
+                disp->refresh_partial();
+                partial_count++;
+            } else {
+                disp->refresh();                          // UC8179 无 refresh_partial 时恒走这里
+                partial_count = 0;
+            }
+            first_frame = false;
         }
         online = now_online;
 
