@@ -16,15 +16,16 @@ static const char *TAG = "ssd1677";
 
 static const uint8_t *s_last_frame;   // disp_show 收到的帧指针(指向 main 的 s_framebuf, 长驻)
 
-static void wait_busy(void)
+static bool wait_busy(void)
 {
     // SSD1677 BUSY: 高=忙(规格书 5-4)。等到低电平。
     int waited = 0;
     while (hal_spi_busy_level() == 1) {
         vTaskDelay(pdMS_TO_TICKS(20));
         waited += 20;
-        if (waited > 35000) { ESP_LOGW(TAG, "busy 35s 超时"); break; }
+        if (waited > 35000) { ESP_LOGW(TAG, "busy 35s 超时"); return false; }
     }
+    return true;
 }
 
 // 上电 + 寄存器初始化(规格书 p35 OTP 参考码)
@@ -59,7 +60,7 @@ static void ssd1677_panel_init(void)
     ESP_LOGI(TAG, "panel init done");
 }
 
-void set_ram_counter(void)
+void ssd1677_set_ram_counter(void)
 {
     hal_spi_cmd(0x4E); hal_spi_data(0x00); hal_spi_data(0x00);   // X counter=0
     hal_spi_cmd(0x4F); hal_spi_data(0xDF); hal_spi_data(0x01);   // Y counter=479
@@ -67,7 +68,7 @@ void set_ram_counter(void)
 
 void ssd1677_ram_begin(void)
 {
-    set_ram_counter();
+    ssd1677_set_ram_counter();
     hal_spi_cmd(0x24);
 }
 
@@ -94,29 +95,29 @@ void ssd1677_write_ram(const uint8_t *plane)
 // 每次刷新后同步, 保证下次局刷基准 = 当前屏上内容。
 void ssd1677_sync_old_ram(const uint8_t *plane)
 {
-    set_ram_counter();
+    ssd1677_set_ram_counter();
     hal_spi_cmd(0x26);
     for (int y = 0; y < SSD_HEIGHT; y++)
         ssd1677_ram_row(plane + y * SSD_ROW_BYTES);
 }
 
-void ssd1677_update_full(void)
+bool ssd1677_update_full(void)
 {
     hal_spi_cmd(0x22); hal_spi_data(0xF7);
     hal_spi_cmd(0x20);
     vTaskDelay(pdMS_TO_TICKS(10));
-    wait_busy();
+    return wait_busy();
 }
 
 // 快波形局刷: 差异翻转、不闪、快。纯波形触发(0x26 同步由 disp 层做)。
 // 波形选 0xCF(Display Mode 2, 不重载 OTP 全刷波形)。真机若有重影/不刷,
 // 见 spec §6: 改 0xFF 或经 0x32 写自定义局刷 LUT。
-void ssd1677_update_partial(void)
+bool ssd1677_update_partial(void)
 {
     hal_spi_cmd(0x22); hal_spi_data(0xCF);
     hal_spi_cmd(0x20);
     vTaskDelay(pdMS_TO_TICKS(10));
-    wait_busy();
+    return wait_busy();
 }
 
 // ---- display_if_t ----
@@ -152,14 +153,12 @@ static esp_err_t disp_show(const uint8_t *frame, size_t len)
 
 static void disp_refresh(void)
 {
-    ssd1677_update_full();
-    if (s_last_frame) ssd1677_sync_old_ram(s_last_frame);   // 全刷后基准=当前帧
+    if (ssd1677_update_full() && s_last_frame) ssd1677_sync_old_ram(s_last_frame);
 }
 
 static void disp_refresh_partial(void)
 {
-    ssd1677_update_partial();
-    if (s_last_frame) ssd1677_sync_old_ram(s_last_frame);   // 局刷后基准=当前帧
+    if (ssd1677_update_partial() && s_last_frame) ssd1677_sync_old_ram(s_last_frame);
 }
 
 static void disp_clear(void)
@@ -168,7 +167,11 @@ static void disp_clear(void)
     memset(row, 0x00, sizeof(row));   // bit=0 => 白(经极性取反后发 0xFF=白)
     ssd1677_ram_begin();
     for (int y = 0; y < SSD_HEIGHT; y++) ssd1677_ram_row(row);
-    ssd1677_update_full();
+    if (ssd1677_update_full()) {       // 全刷成功才同步 0x26 基准=全白
+        ssd1677_set_ram_counter();
+        hal_spi_cmd(0x26);
+        for (int y = 0; y < SSD_HEIGHT; y++) ssd1677_ram_row(row);
+    }
 }
 
 static void disp_sleep(void)

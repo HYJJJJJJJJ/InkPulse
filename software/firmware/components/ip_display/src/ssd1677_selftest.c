@@ -9,6 +9,19 @@
 
 static const char *TAG = "ssd1677_test";
 
+// 把"第 i 个黑块"图案整帧流写到指定 RAM(0x24 写新帧 / 0x26 写局刷基准), 图案只此一处
+static void selftest_write_block_frame(int i, uint8_t ram_cmd)
+{
+    uint8_t row[SSD_ROW_BYTES];
+    ssd1677_set_ram_counter();
+    hal_spi_cmd(ram_cmd);
+    for (int y = 0; y < SSD_HEIGHT; y++) {
+        for (int b = 0; b < SSD_ROW_BYTES; b++)
+            row[b] = (y / 40 == 2 && b == (i % SSD_ROW_BYTES)) ? 0xFF : 0x00;
+        ssd1677_ram_row(row);
+    }
+}
+
 void ssd1677_selftest_run(void)
 {
     static uint8_t row[SSD_ROW_BYTES];   // 100B, bit=1=黑(与 hub 同约定)
@@ -55,29 +68,16 @@ void ssd1677_selftest_run(void)
     for (int y = 0; y < SSD_HEIGHT; y++) ssd1677_ram_row(row);
     ssd1677_update_full();
     // 0x26 基准 = 全白
-    set_ram_counter();
+    ssd1677_set_ram_counter();
     hal_spi_cmd(0x26);
     memset(row, 0x00, sizeof(row));
     for (int y = 0; y < SSD_HEIGHT; y++) ssd1677_ram_row(row);
 
     for (int i = 0; i < 35; i++) {
         ESP_LOGI(TAG, "局刷 #%d", i + 1);
-        // 写 0x24 = 新帧(第 i 个位置一个黑块)
-        ssd1677_ram_begin();   // set counter + 0x24
-        for (int y = 0; y < SSD_HEIGHT; y++) {
-            for (int b = 0; b < SSD_ROW_BYTES; b++)
-                row[b] = (y / 40 == 2 && b == (i % SSD_ROW_BYTES)) ? 0xFF : 0x00;
-            ssd1677_ram_row(row);
-        }
-        ssd1677_update_partial();   // 快波形局刷
-        // 写 0x26 = 同一帧, 作下一轮基准
-        set_ram_counter();
-        hal_spi_cmd(0x26);
-        for (int y = 0; y < SSD_HEIGHT; y++) {
-            for (int b = 0; b < SSD_ROW_BYTES; b++)
-                row[b] = (y / 40 == 2 && b == (i % SSD_ROW_BYTES)) ? 0xFF : 0x00;
-            ssd1677_ram_row(row);
-        }
+        selftest_write_block_frame(i, 0x24);   // 写新帧
+        ssd1677_update_partial();              // 快波形局刷
+        selftest_write_block_frame(i, 0x26);   // 同步下一轮基准
         vTaskDelay(pdMS_TO_TICKS(700));
     }
 
