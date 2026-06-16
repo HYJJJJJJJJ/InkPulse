@@ -100,11 +100,17 @@ onUnmounted(() => clearInterval(tick))
 .tab { background: transparent; color: var(--ink-soft); border: 0; padding: 6px 14px; border-radius: 7px; font-size: 13.5px; }
 .tab:hover { opacity: 1; background: transparent; }
 .tab.on { background: var(--ink); color: var(--paper-raised); }
+/* 预览框收紧包住真机帧, 形状跟随帧本身(横版 7.5寸 / 竖版 4.2寸均不留白条),
+   按高度封顶 + 居中; 窄边栏里则受框宽限制。 */
 .screen {
   background: #fff; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden;
-  /* 800x480 = 5:3 */ aspect-ratio: 5 / 3; display: flex; align-items: center; justify-content: center;
+  width: fit-content; max-width: 100%; margin: 0 auto;
+  display: flex; align-items: center; justify-content: center;
 }
-.screen img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+.screen img {
+  display: block; width: auto; height: auto; max-width: 100%; max-height: 72vh;
+  object-fit: contain; image-rendering: pixelated;
+}
 .foot { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 .metatext { font-size: 12.5px; color: var(--ink-soft); }
 @media (max-width: 760px) { .preview { top: 0; } }
