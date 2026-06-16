@@ -11,7 +11,7 @@ DEFAULT_LAYOUT = ["header_clock_env", "claude_status", "usage", "todos"]
 @dataclass
 class Config:
     refresh_min_interval_s: int = 60
-    refresh_periodic_s: int = 600
+    refresh_periodic_s: int = 60
     claude_logs: str = os.path.expanduser("~/.claude/projects")
     photos_dir: str = os.path.expanduser("~/inkpulse/photos")
     todos_store: str = os.path.expanduser("~/inkpulse/todos.json")

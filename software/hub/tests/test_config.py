@@ -5,7 +5,7 @@ def test_defaults_when_empty(tmp_path):
     cfg = load_config(None)
     assert isinstance(cfg, Config)
     assert cfg.refresh_min_interval_s == 60
-    assert cfg.refresh_periodic_s == 600
+    assert cfg.refresh_periodic_s == 60
     assert cfg.layout == ["header_clock_env", "claude_status", "usage", "todos"]
 
 
@@ -98,3 +98,8 @@ def test_agent_tasks_store_default_and_override(tmp_path):
     p = tmp_path / "c.yaml"
     p.write_text("sources:\n  agent_tasks_store: /tmp/at.json\n", encoding="utf-8")
     assert load_config(str(p)).agent_tasks_store == "/tmp/at.json"
+
+
+def test_default_refresh_periodic_is_60s():
+    from inkpulse_hub.config import Config
+    assert Config().refresh_periodic_s == 60   # 局刷不闪, 默认 1 分钟拉一次让时钟走字
