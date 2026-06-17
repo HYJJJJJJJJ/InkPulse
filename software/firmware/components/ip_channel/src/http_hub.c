@@ -115,6 +115,11 @@ static esp_err_t ch_init(const display_caps_t *caps)
 static esp_err_t ch_fetch(uint8_t *buf, size_t buf_len,
                            const sensor_env_t *env, channel_result_t *out)
 {
+    // 还没用上 mDNS 地址(在 NVS/默认降级地址上)就每轮再试一次单播查询;
+    // 命中即置位、之后不再查(在线稳态零额外开销)。必须在拼 url(用 s_base)前。
+    // 注: 未命中前每轮在此阻塞 ~2s(查询超时); 离线重试间隔 30s, 占比可接受。
+    if (!s_hub_via_mdns) s_hub_via_mdns = try_mdns_resolve();
+
     out->changed = false;
     out->next_refresh_s = 600;
 
@@ -170,6 +175,7 @@ static esp_err_t ch_fetch(uint8_t *buf, size_t buf_len,
         }
     } else {
         ESP_LOGW(TAG, "http perform 失败(离线?), 保留上一帧");
+        s_next = 30;   // 离线: 缩短重试间隔(下轮含再查 mDNS), 而非干等默认 600s
     }
     esp_http_client_cleanup(c);
 
