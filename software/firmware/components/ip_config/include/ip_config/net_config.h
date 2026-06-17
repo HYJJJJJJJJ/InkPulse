@@ -1,7 +1,7 @@
 #pragma once
 // Hub base 地址解析优先级: mDNS 自动发现 > NVS 手动配 > 此编译默认(兜底)。
 // 不含 /frame 路径(由 http_hub 拼接)。默认值仅在前两者都失败时使用。
-#define HUB_DEFAULT_BASE "http://192.168.10.217:8080"
+#define HUB_DEFAULT_BASE "http://192.168.10.64:8080"
 
 // SoftAP 首次配网热点
 #define PROV_AP_SSID  "InkPulse-Setup"
