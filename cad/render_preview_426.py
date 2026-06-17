@@ -251,7 +251,11 @@ mark_aa(ax_side)
 # 收集装配世界三角面, 按 label 分色 (含 bracket + 屏体 + pcba), 供 POGO/Type-C 局部视角复用.
 all_node_tris = []  # (color, tri)
 pcba_col = {"pcb": "#2f7d4f", "components": "#888888",
-            "pogo_pads": "#d11", "fpc_conn": "#e08a2b"}
+            "pogo_pads": "#d11", "fpc_conn": "#e08a2b",
+            # 改动#3: 细节元件分色
+            "esp32s3_module": "#444a8a", "ssd1677_driver": "#7a3b8a",
+            "pmic_dcdc": "#b06a2b", "spi_flash": "#2b6a8a",
+            "bulk_cap": "#8a5a2b", "passives_row": "#999999"}
 for node in (asm.children or []):
     lbl = getattr(node, "label", "")
     col = color_by_label.get(lbl, "#e0a0a0" if lbl == "pcba" else "#cccccc")
