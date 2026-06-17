@@ -50,29 +50,46 @@ static esp_err_t on_evt(esp_http_client_event_t *e)
     return ESP_OK;
 }
 
-// 解析出的 hub base 地址(http://IP:port, 不含 /frame), ch_init 时确定一次
+// 解析出的 hub base 地址(http://IP:port, 不含 /frame)
 static char s_base[128] = "";
+// 是否已通过 mDNS 命中 hub 地址; 命中后停止周期重查(见 ch_fetch)
+static bool s_hub_via_mdns = false;
+
+// 只做 mDNS 单播查询: 命中则写 s_base 返回 true, 否则不动 s_base 返回 false。
+// 用单播应答(QU)位查询: 出站仍走多播, 但请求 hub 以单播直发响应 —— 部分网络
+// (WSL2 mirrored / 路由器多播转发)下 hub 的多播响应回不到设备, 单播响应可直达。
+static bool try_mdns_resolve(void)
+{
+    // mdns_init 只能成功调用一次; 周期重试会多次进来, 故用守卫(否则第二次
+    // 返回 ESP_ERR_INVALID_STATE, 查询永远不执行)。
+    static bool s_mdns_inited = false;
+    if (!s_mdns_inited) {
+        if (mdns_init() != ESP_OK) return false;
+        s_mdns_inited = true;
+    }
+    mdns_result_t *res = NULL;
+    if (mdns_query_generic(NULL, "_inkpulse", "_tcp", MDNS_TYPE_PTR,
+                           MDNS_QUERY_UNICAST, 2000, 4, &res) == ESP_OK && res) {
+        for (mdns_ip_addr_t *a = res->addr; a; a = a->next) {
+            if (a->addr.type == ESP_IPADDR_TYPE_V4) {
+                snprintf(s_base, sizeof(s_base), "http://" IPSTR ":%u",
+                         IP2STR(&a->addr.u_addr.ip4), res->port);
+                mdns_query_results_free(res);
+                ESP_LOGI(TAG, "hub 经 mDNS 发现: %s", s_base);
+                return true;
+            }
+        }
+        mdns_query_results_free(res);
+    }
+    return false;
+}
 
 // 解析优先级: mDNS 自动发现 > NVS 手动配 > 编译默认。结果写入 s_base。
+// 开机调一次; 未命中 mDNS 时由 ch_fetch 周期重试。
 static void resolve_hub_base(void)
 {
-    // 1) mDNS: 查询 _inkpulse._tcp, 取首个 IPv4 + 端口
-    if (mdns_init() == ESP_OK) {
-        mdns_result_t *res = NULL;
-        if (mdns_query_ptr("_inkpulse", "_tcp", 2000, 4, &res) == ESP_OK && res) {
-            for (mdns_ip_addr_t *a = res->addr; a; a = a->next) {
-                if (a->addr.type == ESP_IPADDR_TYPE_V4) {
-                    snprintf(s_base, sizeof(s_base), "http://" IPSTR ":%u",
-                             IP2STR(&a->addr.u_addr.ip4), res->port);
-                    mdns_query_results_free(res);
-                    ESP_LOGI(TAG, "hub 经 mDNS 发现: %s", s_base);
-                    return;
-                }
-            }
-            mdns_query_results_free(res);
-        }
-        ESP_LOGW(TAG, "mDNS 未发现 hub, 降级");
-    }
+    if (try_mdns_resolve()) { s_hub_via_mdns = true; return; }
+    ESP_LOGW(TAG, "mDNS 未发现 hub, 降级");
     // 2) NVS 手动地址
     if (hub_addr_load(s_base, sizeof(s_base))) {
         ESP_LOGI(TAG, "hub 经 NVS 手动配置: %s", s_base);
