@@ -74,10 +74,15 @@ def create_app(cfg: Config) -> FastAPI:
             return Response(status_code=304)   # 设备复用缓存, 屏上内容未变, 不更新记录
         # 设备真正取走了一帧 = 此刻物理显示的内容, 记录下来供网页镜像
         state.record_device_frame(f.png_bytes, f.etag, time.time())
+        # 周期≤60s 时把"下次刷新"对齐到下一个整分钟, 让真机在 :00 附近醒来,
+        # 时钟显示尽量贴合真实时间(自校正: 任何相位漂移下一周期即被拉回整分钟)。
+        # 固件最小钳制 30s; 稳态拉帧落在 :00~:21, 余 39~60s, 不触发钳制。
+        period = cfg.refresh_periodic_s
+        next_refresh = period if period > 60 else max(1, 60 - int(time.time() % 60))
         return Response(
             content=f.body,
             media_type="application/octet-stream",
-            headers={"ETag": f.etag, "X-Next-Refresh": str(cfg.refresh_periodic_s)},
+            headers={"ETag": f.etag, "X-Next-Refresh": str(next_refresh)},
         )
 
     @app.get("/preview.png")
